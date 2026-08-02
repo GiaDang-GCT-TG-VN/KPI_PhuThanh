@@ -4,48 +4,92 @@ const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj824lSo
 
 // Thử fetch trực tiếp, nếu lỗi CORS thì dùng proxy
 const CORS_PROXY = 'https://corsproxy.io/?';
-let CSV_URL = SHEET_CSV_URL;
+
+// Auto-refresh interval (5 phút = 300000ms)
+const AUTO_REFRESH_INTERVAL = 300000;
 
 // === GLOBAL DATA ===
 let allTasks = [];
 let departmentChart = null;
 let statusChart = null;
+let isLoading = false;
 
 // === MAIN ===
 document.addEventListener('DOMContentLoaded', () => {
     fetchData();
     setupFilters();
+    setupRefreshButton();
+
+    // Auto-refresh mỗi 5 phút
+    setInterval(() => {
+        console.log('Auto-refresh triggered');
+        fetchData();
+    }, AUTO_REFRESH_INTERVAL);
 });
 
 // === FETCH DATA ===
 async function fetchData() {
+    // Tránh fetch trùng lặp
+    if (isLoading) {
+        console.log('Already loading, skipping...');
+        return;
+    }
+
+    isLoading = true;
+
     try {
         showLoading();
 
         let response;
         let csvText;
 
+        // Thêm cache-busting timestamp để tránh browser cache
+        const cacheBuster = '&_t=' + Date.now();
+        const urlWithCacheBust = SHEET_CSV_URL + cacheBuster;
+
         // Thử fetch trực tiếp trước
         try {
-            response = await fetch(SHEET_CSV_URL);
+            response = await fetch(urlWithCacheBust, {
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache' }
+            });
             if (!response.ok) throw new Error('Direct fetch failed');
             csvText = await response.text();
+            console.log('Direct fetch successful');
         } catch (e) {
             // Nếu lỗi CORS, dùng proxy
             console.log('Direct fetch failed, trying CORS proxy...');
-            response = await fetch(CORS_PROXY + encodeURIComponent(SHEET_CSV_URL));
+            response = await fetch(CORS_PROXY + encodeURIComponent(urlWithCacheBust), {
+                cache: 'no-store'
+            });
             if (!response.ok) throw new Error('Không thể tải dữ liệu');
             csvText = await response.text();
+            console.log('CORS proxy fetch successful');
         }
 
         const tasks = parseCSV(csvText);
         allTasks = tasks;
+
+        console.log(`Loaded ${tasks.length} tasks`);
 
         renderDashboard(tasks);
         updateLastUpdate();
     } catch (error) {
         console.error('Error:', error);
         showError('Lỗi tải dữ liệu: ' + error.message + '. Vui lòng kiểm tra Google Sheets đã Publish to web chưa.');
+    } finally {
+        isLoading = false;
+    }
+}
+
+// === REFRESH BUTTON ===
+function setupRefreshButton() {
+    const btn = document.getElementById('refreshBtn');
+    if (btn) {
+        btn.addEventListener('click', () => {
+            console.log('Manual refresh triggered');
+            fetchData();
+        });
     }
 }
 
