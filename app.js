@@ -1,5 +1,10 @@
 // === CONFIG ===
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj824lSoKDpnjPl2ChHFKw832dRjXXiDeF_xMlo4hbjyo6WtoefDiGT4PctBSU6muoXF9cnN6hkRSQ/pub?gid=1567229633&single=true&output=csv';
+// Link CSV trực tiếp từ Google Sheets (đã publish)
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj824lSoKDpnjPl2ChHFKw832dRjXXiDeF_xMlo4hbjyo6WtoefDiGT4PctBSU6muoXF9cnN6hkRSQ/pub?gid=1567229633&single=true&output=csv';
+
+// Thử fetch trực tiếp, nếu lỗi CORS thì dùng proxy
+const CORS_PROXY = 'https://corsproxy.io/?';
+let CSV_URL = SHEET_CSV_URL;
 
 // === GLOBAL DATA ===
 let allTasks = [];
@@ -16,10 +21,23 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchData() {
     try {
         showLoading();
-        const response = await fetch(CSV_URL);
-        if (!response.ok) throw new Error('Không thể tải dữ liệu');
 
-        const csvText = await response.text();
+        let response;
+        let csvText;
+
+        // Thử fetch trực tiếp trước
+        try {
+            response = await fetch(SHEET_CSV_URL);
+            if (!response.ok) throw new Error('Direct fetch failed');
+            csvText = await response.text();
+        } catch (e) {
+            // Nếu lỗi CORS, dùng proxy
+            console.log('Direct fetch failed, trying CORS proxy...');
+            response = await fetch(CORS_PROXY + encodeURIComponent(SHEET_CSV_URL));
+            if (!response.ok) throw new Error('Không thể tải dữ liệu');
+            csvText = await response.text();
+        }
+
         const tasks = parseCSV(csvText);
         allTasks = tasks;
 
@@ -27,7 +45,7 @@ async function fetchData() {
         updateLastUpdate();
     } catch (error) {
         console.error('Error:', error);
-        showError('Lỗi tải dữ liệu: ' + error.message);
+        showError('Lỗi tải dữ liệu: ' + error.message + '. Vui lòng kiểm tra Google Sheets đã Publish to web chưa.');
     }
 }
 
