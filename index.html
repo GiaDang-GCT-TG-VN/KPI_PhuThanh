@@ -4,183 +4,85 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard KPI - UBND xã Phú Thành</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <header>
-        <div class="header-content">
-            <h1>Dashboard KPI</h1>
-            <p class="subtitle">UBND xã Phú Thành · Kỳ 06/2026</p>
+    <!-- Mobile menu toggle -->
+    <button class="menu-toggle" id="menuToggle">
+        <i class="ti ti-menu-2"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <div class="brand-logo"><i class="ti ti-chart-histogram"></i></div>
+            <div>
+                <div class="brand-name">KPI & Nhiệm vụ</div>
+                <div class="brand-sub">UBND xã Phú Thành</div>
+            </div>
         </div>
-        <div class="header-actions">
-            <button id="refreshBtn" class="refresh-btn" title="Cập nhật dữ liệu">
-                <span class="refresh-icon">🔄</span> Cập nhật
-            </button>
-            <div class="last-update">
-                Dữ liệu lúc: <span id="lastUpdate">--</span>
+
+        <div class="nav-group">TỔNG QUAN</div>
+        <a class="nav-item active" data-page="dashboard">
+            <i class="ti ti-layout-dashboard"></i> Dashboard
+        </a>
+
+        <div class="nav-group">LUỒNG KPI</div>
+        <a class="nav-item" data-page="kpi-phongban">
+            <i class="ti ti-users-group"></i> KPI phòng ban
+        </a>
+        <a class="nav-item" data-page="theodoi">
+            <i class="ti ti-checklist"></i> Theo dõi công việc
+        </a>
+        <a class="nav-item" data-page="nhansu">
+            <i class="ti ti-users"></i> Nhân sự
+        </a>
+
+        <div class="nav-group">DỮ LIỆU</div>
+        <a class="nav-item" data-page="can-capnhat">
+            <i class="ti ti-alert-triangle"></i> Cần cập nhật
+            <span class="badge" id="badgeChuaBaoCao">0</span>
+        </a>
+
+        <div class="user-info">
+            <div class="user-avatar">N</div>
+            <div>
+                <div class="user-name">Chủ tịch UBND</div>
+                <div class="user-role">Vai: Giám sát</div>
             </div>
         </div>
-    </header>
+    </aside>
 
-    <main>
-        <!-- Tổng quan -->
-        <section class="overview-cards">
-            <div class="card total">
-                <div class="card-icon">📋</div>
-                <div class="card-content">
-                    <span class="card-value" id="totalTasks">--</span>
-                    <span class="card-label">Tổng nhiệm vụ</span>
+    <!-- Main content -->
+    <div class="main-content">
+        <header class="header-bar">
+            <div class="header-content">
+                <h1 id="pageTitle">Dashboard</h1>
+                <p class="subtitle" id="pageSubtitle">Tổng quan KPI toàn xã · Kỳ 06/2026</p>
+            </div>
+            <div class="header-actions">
+                <button id="refreshBtn" class="refresh-btn" title="Cập nhật dữ liệu">
+                    <i class="ti ti-refresh"></i> Cập nhật
+                </button>
+                <div class="last-update">
+                    Dữ liệu lúc: <span id="lastUpdate">--</span>
                 </div>
             </div>
-            <div class="card completed">
-                <div class="card-icon">✅</div>
-                <div class="card-content">
-                    <span class="card-value" id="completedTasks">--</span>
-                    <span class="card-label">Hoàn thành</span>
-                </div>
-            </div>
-            <div class="card in-progress">
-                <div class="card-icon">🔄</div>
-                <div class="card-content">
-                    <span class="card-value" id="inProgressTasks">--</span>
-                    <span class="card-label">Đang thực hiện</span>
-                </div>
-            </div>
-            <div class="card overdue">
-                <div class="card-icon">⚠️</div>
-                <div class="card-content">
-                    <span class="card-value" id="overdueTasks">--</span>
-                    <span class="card-label">Trễ hạn</span>
-                </div>
-            </div>
-            <div class="card pending">
-                <div class="card-icon">⏳</div>
-                <div class="card-content">
-                    <span class="card-value" id="pendingTasks">--</span>
-                    <span class="card-label">Chờ phê duyệt</span>
-                </div>
-            </div>
-            <div class="card no-report">
-                <div class="card-icon">📝</div>
-                <div class="card-content">
-                    <span class="card-value" id="noReportTasks">--</span>
-                    <span class="card-label">Chưa báo cáo</span>
-                </div>
-            </div>
-        </section>
+        </header>
 
-        <!-- Tiến độ tổng -->
-        <section class="progress-section">
-            <h2>Tiến độ toàn xã</h2>
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="overallProgress"></div>
-                <span class="progress-text" id="overallProgressText">0%</span>
+        <main id="mainContainer">
+            <!-- Page content rendered here by JS -->
+            <div class="loading-page">
+                <i class="ti ti-loader-2 spin"></i> Đang tải dữ liệu...
             </div>
-        </section>
+        </main>
 
-        <!-- Charts và Bảng phòng ban -->
-        <section class="charts-section">
-            <div class="chart-container">
-                <h2>Tiến độ theo Phòng ban</h2>
-                <canvas id="departmentChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <h2>Phân bố Trạng thái</h2>
-                <canvas id="statusChart"></canvas>
-            </div>
-        </section>
-
-        <!-- Bảng tổng hợp phòng ban -->
-        <section class="department-table-section">
-            <h2>Tổng hợp theo Phòng ban</h2>
-            <div class="table-responsive">
-                <table id="departmentTable">
-                    <thead>
-                        <tr>
-                            <th>Phòng ban</th>
-                            <th>Số nhiệm vụ</th>
-                            <th>Khối lượng</th>
-                            <th>% Hoàn thành</th>
-                            <th>Hoàn thành</th>
-                            <th>Đang TH</th>
-                            <th>Trễ hạn</th>
-                            <th>Chờ duyệt</th>
-                            <th>Chưa BC</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Cần cập nhật ngay -->
-        <section class="urgent-section" id="urgentSection">
-            <h2 class="urgent-title">Cần cập nhật ngay</h2>
-            <p class="urgent-desc">Nhiệm vụ chưa có báo cáo tiến độ trong kỳ — tính là chưa thực hiện</p>
-            <div class="table-responsive">
-                <table id="urgentTable">
-                    <thead>
-                        <tr>
-                            <th>Nhiệm vụ</th>
-                            <th>Cán bộ</th>
-                            <th>Phòng ban</th>
-                            <th>Khối lượng</th>
-                            <th>Hạn</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-            <p class="urgent-empty" id="urgentEmpty" style="display: none;">Tất cả nhiệm vụ đã có báo cáo</p>
-        </section>
-
-        <!-- Bộ lọc -->
-        <section class="filter-section">
-            <h2>Chi tiết Nhiệm vụ</h2>
-            <div class="filters">
-                <select id="filterDepartment">
-                    <option value="">Tất cả phòng ban</option>
-                </select>
-                <select id="filterStatus">
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="Hoàn thành">Hoàn thành</option>
-                    <option value="Đang thực hiện">Đang thực hiện</option>
-                    <option value="Trễ hạn">Trễ hạn</option>
-                    <option value="Chờ phê duyệt">Chờ phê duyệt</option>
-                    <option value="Chưa báo cáo">Chưa báo cáo</option>
-                </select>
-                <button id="resetFilters">Xóa bộ lọc</button>
-            </div>
-        </section>
-
-        <!-- Bảng chi tiết -->
-        <section class="tasks-table-section">
-            <div class="table-responsive">
-                <table id="tasksTable">
-                    <thead>
-                        <tr>
-                            <th>Mã việc</th>
-                            <th>Nhiệm vụ</th>
-                            <th>Phòng ban</th>
-                            <th>Cán bộ</th>
-                            <th>KL</th>
-                            <th>%</th>
-                            <th>Trạng thái</th>
-                            <th>Hạn</th>
-                            <th>Cập nhật</th>
-                            <th>Ghi chú</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <p>Dashboard KPI UBND xã Phú Thành · Dữ liệu từ Google Sheets</p>
-    </footer>
+        <footer>
+            <p>Dashboard KPI UBND xã Phú Thành · Dữ liệu từ Google Sheets</p>
+        </footer>
+    </div>
 
     <script src="app.js"></script>
 </body>

@@ -1,24 +1,32 @@
 // === CONFIG ===
-// Link CSV trực tiếp từ Google Sheets (đã publish)
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj824lSoKDpnjPl2ChHFKw832dRjXXiDeF_xMlo4hbjyo6WtoefDiGT4PctBSU6muoXF9cnN6hkRSQ/pub?gid=1567229633&single=true&output=csv';
-
-// Thử fetch trực tiếp, nếu lỗi CORS thì dùng proxy
 const CORS_PROXY = 'https://corsproxy.io/?';
+const AUTO_REFRESH_INTERVAL = 300000; // 5 phút
 
-// Auto-refresh interval (5 phút = 300000ms)
-const AUTO_REFRESH_INTERVAL = 300000;
-
-// === GLOBAL DATA ===
+// === GLOBAL STATE ===
 let allTasks = [];
 let departmentChart = null;
 let statusChart = null;
 let isLoading = false;
+let currentPage = 'dashboard';
+let currentFilters = { department: '', status: '' };
+let currentStaffProfile = null;
+
+// === PAGE TITLES ===
+const pageTitles = {
+    'dashboard': { title: 'Dashboard', subtitle: 'Tổng quan KPI toàn xã · Kỳ 06/2026' },
+    'kpi-phongban': { title: 'KPI Phòng ban', subtitle: 'Chi tiết tiến độ từng phòng ban' },
+    'theodoi': { title: 'Theo dõi công việc', subtitle: 'Danh sách nhiệm vụ và tiến độ' },
+    'nhansu': { title: 'Nhân sự', subtitle: 'Danh sách cán bộ và nhiệm vụ' },
+    'can-capnhat': { title: 'Cần cập nhật', subtitle: 'Nhiệm vụ chưa báo cáo, trễ hạn' }
+};
 
 // === MAIN ===
 document.addEventListener('DOMContentLoaded', () => {
-    fetchData();
-    setupFilters();
+    setupNavigation();
+    setupMobileMenu();
     setupRefreshButton();
+    fetchData();
 
     // Auto-refresh mỗi 5 phút
     setInterval(() => {
@@ -27,59 +35,88 @@ document.addEventListener('DOMContentLoaded', () => {
     }, AUTO_REFRESH_INTERVAL);
 });
 
-// === FETCH DATA ===
-async function fetchData() {
-    // Tránh fetch trùng lặp
-    if (isLoading) {
-        console.log('Already loading, skipping...');
-        return;
+// === NAVIGATION ===
+function setupNavigation() {
+    document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = item.dataset.page;
+            navigateTo(page);
+        });
+    });
+}
+
+function navigateTo(page, data = null) {
+    // Reset staff profile nếu không phải trang nhân sự
+    if (page !== 'nhansu') {
+        currentStaffProfile = null;
     }
 
-    isLoading = true;
-
-    try {
-        showLoading();
-
-        let response;
-        let csvText;
-
-        // Thêm cache-busting timestamp để tránh browser cache
-        const cacheBuster = '&_t=' + Date.now();
-        const urlWithCacheBust = SHEET_CSV_URL + cacheBuster;
-
-        // Thử fetch trực tiếp trước
-        try {
-            response = await fetch(urlWithCacheBust, {
-                cache: 'no-store',
-                headers: { 'Cache-Control': 'no-cache' }
-            });
-            if (!response.ok) throw new Error('Direct fetch failed');
-            csvText = await response.text();
-            console.log('Direct fetch successful');
-        } catch (e) {
-            // Nếu lỗi CORS, dùng proxy
-            console.log('Direct fetch failed, trying CORS proxy...');
-            response = await fetch(CORS_PROXY + encodeURIComponent(urlWithCacheBust), {
-                cache: 'no-store'
-            });
-            if (!response.ok) throw new Error('Không thể tải dữ liệu');
-            csvText = await response.text();
-            console.log('CORS proxy fetch successful');
+    // Cập nhật active state
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.page === page) {
+            item.classList.add('active');
         }
+    });
 
-        const tasks = parseCSV(csvText);
-        allTasks = tasks;
+    // Đóng sidebar trên mobile
+    document.getElementById('sidebar').classList.remove('open');
 
-        console.log(`Loaded ${tasks.length} tasks`);
+    currentPage = page;
 
-        renderDashboard(tasks);
-        updateLastUpdate();
-    } catch (error) {
-        console.error('Error:', error);
-        showError('Lỗi tải dữ liệu: ' + error.message + '. Vui lòng kiểm tra Google Sheets đã Publish to web chưa.');
-    } finally {
-        isLoading = false;
+    // Cập nhật header
+    const pageInfo = pageTitles[page] || { title: 'Dashboard', subtitle: '' };
+    document.getElementById('pageTitle').textContent = pageInfo.title;
+    document.getElementById('pageSubtitle').textContent = pageInfo.subtitle;
+
+    // Render trang tương ứng
+    renderPage(page, data);
+}
+
+function renderPage(page, data = null) {
+    const container = document.getElementById('mainContainer');
+
+    switch (page) {
+        case 'dashboard':
+            renderDashboardPage();
+            break;
+        case 'kpi-phongban':
+            renderKpiPhongBanPage();
+            break;
+        case 'theodoi':
+            renderTheodoiPage();
+            break;
+        case 'nhansu':
+            if (data && data.staff) {
+                renderStaffProfile(data.staff);
+            } else {
+                renderNhanSuPage();
+            }
+            break;
+        case 'can-capnhat':
+            renderCanCapNhatPage();
+            break;
+        default:
+            renderDashboardPage();
     }
+}
+
+// === MOBILE MENU ===
+function setupMobileMenu() {
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+
+    menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+    });
+
+    // Đóng sidebar khi click ngoài
+    document.addEventListener('click', (e) => {
+        if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
+            sidebar.classList.remove('open');
+        }
+    });
 }
 
 // === REFRESH BUTTON ===
@@ -93,12 +130,69 @@ function setupRefreshButton() {
     }
 }
 
+// === FETCH DATA ===
+async function fetchData() {
+    if (isLoading) {
+        console.log('Already loading, skipping...');
+        return;
+    }
+
+    isLoading = true;
+    showLoading();
+
+    try {
+        let csvText;
+        const cacheBuster = '&_t=' + Date.now();
+        const urlWithCacheBust = SHEET_CSV_URL + cacheBuster;
+
+        try {
+            const response = await fetch(urlWithCacheBust, {
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache' }
+            });
+            if (!response.ok) throw new Error('Direct fetch failed');
+            csvText = await response.text();
+            console.log('Direct fetch successful');
+        } catch (e) {
+            console.log('Direct fetch failed, trying CORS proxy...');
+            const response = await fetch(CORS_PROXY + encodeURIComponent(urlWithCacheBust), {
+                cache: 'no-store'
+            });
+            if (!response.ok) throw new Error('Không thể tải dữ liệu');
+            csvText = await response.text();
+            console.log('CORS proxy fetch successful');
+        }
+
+        allTasks = parseCSV(csvText);
+        console.log(`Loaded ${allTasks.length} tasks`);
+
+        updateBadge();
+        updateLastUpdate();
+        renderPage(currentPage);
+
+    } catch (error) {
+        console.error('Error:', error);
+        showError('Lỗi tải dữ liệu: ' + error.message);
+    } finally {
+        isLoading = false;
+    }
+}
+
+// === UPDATE BADGE ===
+function updateBadge() {
+    const count = allTasks.filter(t => t.trangThai === 'Chưa báo cáo').length;
+    const badge = document.getElementById('badgeChuaBaoCao');
+    if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+}
+
 // === PARSE CSV ===
 function parseCSV(csv) {
     const lines = csv.split('\n');
     const tasks = [];
 
-    // Find header row (contains "Mã việc")
     let headerIndex = -1;
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].includes('Mã việc')) {
@@ -109,11 +203,9 @@ function parseCSV(csv) {
 
     if (headerIndex === -1) return tasks;
 
-    // Parse data rows (skip header)
     for (let i = headerIndex + 1; i < lines.length; i++) {
         const row = parseCSVRow(lines[i]);
 
-        // Skip empty rows or instruction rows
         if (!row[0] || row[0].startsWith('HƯỚNG DẪN') || !row[0].startsWith('CV')) continue;
 
         const task = {
@@ -139,7 +231,6 @@ function parseCSV(csv) {
     return tasks;
 }
 
-// Parse CSV row handling quoted fields
 function parseCSVRow(row) {
     const result = [];
     let current = '';
@@ -147,7 +238,6 @@ function parseCSVRow(row) {
 
     for (let i = 0; i < row.length; i++) {
         const char = row[i];
-
         if (char === '"') {
             inQuotes = !inQuotes;
         } else if (char === ',' && !inQuotes) {
@@ -158,11 +248,9 @@ function parseCSVRow(row) {
         }
     }
     result.push(current.trim());
-
     return result;
 }
 
-// Parse percent (handles "80%" or "0.8")
 function parsePercent(value) {
     if (!value) return 0;
     const str = value.toString().trim();
@@ -173,52 +261,118 @@ function parsePercent(value) {
     return num > 1 ? num / 100 : num;
 }
 
-// === RENDER DASHBOARD ===
-function renderDashboard(tasks) {
-    renderOverviewCards(tasks);
-    renderOverallProgress(tasks);
-    renderDepartmentTable(tasks);
-    renderCharts(tasks);
-    renderUrgentSection(tasks);
-    renderTasksTable(tasks);
-    populateDepartmentFilter(tasks);
+// ====================================================
+// PAGE 1: DASHBOARD
+// ====================================================
+function renderDashboardPage() {
+    const container = document.getElementById('mainContainer');
+    container.innerHTML = `
+        <!-- Overview Cards -->
+        <div class="overview-cards">
+            <div class="card">
+                <div class="card-icon total"><i class="ti ti-list-check"></i></div>
+                <div class="card-content">
+                    <div class="card-value" id="totalTasks">0</div>
+                    <div class="card-label">Tổng nhiệm vụ</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon completed"><i class="ti ti-circle-check"></i></div>
+                <div class="card-content">
+                    <div class="card-value" id="completedTasks">0</div>
+                    <div class="card-label">Hoàn thành</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon in-progress"><i class="ti ti-clock"></i></div>
+                <div class="card-content">
+                    <div class="card-value" id="inProgressTasks">0</div>
+                    <div class="card-label">Đang thực hiện</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon overdue"><i class="ti ti-alert-circle"></i></div>
+                <div class="card-content">
+                    <div class="card-value" id="overdueTasks">0</div>
+                    <div class="card-label">Trễ hạn</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon pending"><i class="ti ti-hourglass"></i></div>
+                <div class="card-content">
+                    <div class="card-value" id="pendingTasks">0</div>
+                    <div class="card-label">Chờ phê duyệt</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon no-report"><i class="ti ti-file-off"></i></div>
+                <div class="card-content">
+                    <div class="card-value" id="noReportTasks">0</div>
+                    <div class="card-label">Chưa báo cáo</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overall Progress -->
+        <div class="section-card">
+            <h3>Tiến độ toàn xã</h3>
+            <div class="progress-bar-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="overallProgress"></div>
+                    <span class="progress-text" id="overallProgressText">0%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="section-card">
+                <h3>Tiến độ theo phòng ban</h3>
+                <div class="chart-container">
+                    <canvas id="departmentChart"></canvas>
+                </div>
+            </div>
+            <div class="section-card">
+                <h3>Phân bố trạng thái</h3>
+                <div class="chart-container chart-small">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Department Table -->
+        <div class="section-card">
+            <h3>Tổng hợp phòng ban</h3>
+            <div class="table-container">
+                <table id="departmentTable">
+                    <thead>
+                        <tr>
+                            <th>Phòng ban</th>
+                            <th>Số việc</th>
+                            <th>Khối lượng</th>
+                            <th>Tiến độ</th>
+                            <th>HT</th>
+                            <th>ĐTH</th>
+                            <th>Trễ</th>
+                            <th>Chờ</th>
+                            <th>Chưa BC</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    // Render data
+    renderOverviewCards(allTasks);
+    renderOverallProgress(allTasks);
+    renderDepartmentTable(allTasks);
+    renderCharts(allTasks);
 }
 
-// === URGENT SECTION (Cần cập nhật ngay) ===
-function renderUrgentSection(tasks) {
-    const urgentTasks = tasks.filter(t => t.trangThai === 'Chưa báo cáo');
-    const section = document.getElementById('urgentSection');
-    const tbody = document.querySelector('#urgentTable tbody');
-    const emptyMsg = document.getElementById('urgentEmpty');
-    const table = document.getElementById('urgentTable');
-
-    if (urgentTasks.length === 0) {
-        table.style.display = 'none';
-        emptyMsg.style.display = 'block';
-        return;
-    }
-
-    table.style.display = 'table';
-    emptyMsg.style.display = 'none';
-    tbody.innerHTML = '';
-
-    urgentTasks.forEach(task => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><strong>${task.nhiemVu}</strong></td>
-            <td>${task.canBo}</td>
-            <td>${task.phongBan}</td>
-            <td>${task.khoiLuong}</td>
-            <td>${task.hanHoanThanh}</td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-// === OVERVIEW CARDS ===
 function renderOverviewCards(tasks) {
     const stats = calculateStats(tasks);
-
     document.getElementById('totalTasks').textContent = stats.total;
     document.getElementById('completedTasks').textContent = stats.completed;
     document.getElementById('inProgressTasks').textContent = stats.inProgress;
@@ -238,18 +392,17 @@ function calculateStats(tasks) {
     };
 }
 
-// === OVERALL PROGRESS ===
 function renderOverallProgress(tasks) {
     const progress = calculateWeightedProgress(tasks);
     const progressBar = document.getElementById('overallProgress');
     const progressText = document.getElementById('overallProgressText');
 
-    progressBar.style.width = progress + '%';
-    progressText.textContent = progress.toFixed(1) + '%';
-
-    // Change text color based on progress
-    if (progress > 50) {
-        progressText.style.color = 'white';
+    if (progressBar && progressText) {
+        progressBar.style.width = progress + '%';
+        progressText.textContent = progress.toFixed(1) + '%';
+        if (progress > 50) {
+            progressText.style.color = 'white';
+        }
     }
 }
 
@@ -267,16 +420,46 @@ function calculateWeightedProgress(tasks) {
     return totalWeight > 0 ? (weightedSum / totalWeight) * 100 : 0;
 }
 
-// === DEPARTMENT TABLE ===
 function renderDepartmentTable(tasks) {
-    const departments = {};
+    const departments = getDepartmentData(tasks);
+    const tbody = document.querySelector('#departmentTable tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    departments.forEach(dept => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${dept.name}</strong></td>
+            <td>${dept.taskCount}</td>
+            <td>${dept.totalWeight}</td>
+            <td>
+                <div class="progress-cell">
+                    <div class="progress-mini">
+                        <div class="progress-mini-bar" style="width: ${dept.progress}%"></div>
+                    </div>
+                    <span>${dept.progress.toFixed(0)}%</span>
+                </div>
+            </td>
+            <td>${dept.stats.completed}</td>
+            <td>${dept.stats.inProgress}</td>
+            <td style="color: ${dept.stats.overdue > 0 ? '#ef4444' : 'inherit'}">${dept.stats.overdue}</td>
+            <td>${dept.stats.pending}</td>
+            <td>${dept.stats.noReport}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function getDepartmentData(tasks) {
+    const deptMap = {};
 
     tasks.forEach(task => {
         const dept = task.phongBan;
         if (!dept) return;
 
-        if (!departments[dept]) {
-            departments[dept] = {
+        if (!deptMap[dept]) {
+            deptMap[dept] = {
                 name: dept,
                 tasks: [],
                 totalWeight: 0,
@@ -284,85 +467,49 @@ function renderDepartmentTable(tasks) {
             };
         }
 
-        departments[dept].tasks.push(task);
-        departments[dept].totalWeight += task.khoiLuong;
-        departments[dept].weightedProgress += task.khoiLuong * task.phanTram;
+        deptMap[dept].tasks.push(task);
+        deptMap[dept].totalWeight += task.khoiLuong;
+        deptMap[dept].weightedProgress += task.khoiLuong * task.phanTram;
     });
 
-    const tbody = document.querySelector('#departmentTable tbody');
-    tbody.innerHTML = '';
-
-    Object.values(departments).forEach(dept => {
+    return Object.values(deptMap).map(dept => {
         const progress = dept.totalWeight > 0
             ? (dept.weightedProgress / dept.totalWeight) * 100
             : 0;
 
-        const stats = {
-            completed: dept.tasks.filter(t => t.trangThai === 'Hoàn thành').length,
-            inProgress: dept.tasks.filter(t => t.trangThai === 'Đang thực hiện').length,
-            overdue: dept.tasks.filter(t => t.trangThai === 'Trễ hạn').length,
-            pending: dept.tasks.filter(t => t.trangThai === 'Chờ phê duyệt').length,
-            noReport: dept.tasks.filter(t => t.trangThai === 'Chưa báo cáo').length
+        return {
+            name: dept.name,
+            taskCount: dept.tasks.length,
+            totalWeight: dept.totalWeight,
+            progress: progress,
+            tasks: dept.tasks,
+            stats: {
+                completed: dept.tasks.filter(t => t.trangThai === 'Hoàn thành').length,
+                inProgress: dept.tasks.filter(t => t.trangThai === 'Đang thực hiện').length,
+                overdue: dept.tasks.filter(t => t.trangThai === 'Trễ hạn').length,
+                pending: dept.tasks.filter(t => t.trangThai === 'Chờ phê duyệt').length,
+                noReport: dept.tasks.filter(t => t.trangThai === 'Chưa báo cáo').length
+            }
         };
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><strong>${dept.name}</strong></td>
-            <td>${dept.tasks.length}</td>
-            <td>${dept.totalWeight}</td>
-            <td>
-                <div class="progress-cell">
-                    <div class="progress-mini">
-                        <div class="progress-mini-bar" style="width: ${progress}%"></div>
-                    </div>
-                    <span>${progress.toFixed(0)}%</span>
-                </div>
-            </td>
-            <td>${stats.completed}</td>
-            <td>${stats.inProgress}</td>
-            <td style="color: ${stats.overdue > 0 ? '#ef4444' : 'inherit'}">${stats.overdue}</td>
-            <td>${stats.pending}</td>
-            <td>${stats.noReport}</td>
-        `;
-        tbody.appendChild(row);
-    });
+    }).sort((a, b) => b.progress - a.progress);
 }
 
-// === CHARTS ===
 function renderCharts(tasks) {
     renderDepartmentChart(tasks);
     renderStatusChart(tasks);
 }
 
 function renderDepartmentChart(tasks) {
-    const departments = {};
+    const departments = getDepartmentData(tasks);
+    const labels = departments.map(d => d.name);
+    const data = departments.map(d => d.progress);
 
-    tasks.forEach(task => {
-        const dept = task.phongBan;
-        if (!dept) return;
-
-        if (!departments[dept]) {
-            departments[dept] = { totalWeight: 0, weightedProgress: 0 };
-        }
-        departments[dept].totalWeight += task.khoiLuong;
-        departments[dept].weightedProgress += task.khoiLuong * task.phanTram;
-    });
-
-    // Tính % và sắp xếp giảm dần
-    const deptData = Object.keys(departments).map(dept => {
-        const d = departments[dept];
-        const pct = d.totalWeight > 0 ? (d.weightedProgress / d.totalWeight) * 100 : 0;
-        return { name: dept, pct: pct };
-    }).sort((a, b) => b.pct - a.pct); // Sắp giảm dần
-
-    const labels = deptData.map(d => d.name);
-    const data = deptData.map(d => d.pct);
-
-    const ctx = document.getElementById('departmentChart').getContext('2d');
+    const ctx = document.getElementById('departmentChart');
+    if (!ctx) return;
 
     if (departmentChart) departmentChart.destroy();
 
-    departmentChart = new Chart(ctx, {
+    departmentChart = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: {
             labels: labels,
@@ -375,28 +522,18 @@ function renderDepartmentChart(tasks) {
             }]
         },
         options: {
-            indexAxis: 'y', // Biểu đồ ngang
+            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
+            plugins: { legend: { display: false } },
             scales: {
                 x: {
                     beginAtZero: true,
                     max: 100,
-                    ticks: {
-                        callback: value => value + '%'
-                    },
-                    grid: {
-                        color: '#e5e7eb'
-                    }
+                    ticks: { callback: value => value + '%' },
+                    grid: { color: '#e5e7eb' }
                 },
-                y: {
-                    grid: {
-                        display: false
-                    }
-                }
+                y: { grid: { display: false } }
             }
         }
     });
@@ -404,12 +541,12 @@ function renderDepartmentChart(tasks) {
 
 function renderStatusChart(tasks) {
     const stats = calculateStats(tasks);
-
-    const ctx = document.getElementById('statusChart').getContext('2d');
+    const ctx = document.getElementById('statusChart');
+    if (!ctx) return;
 
     if (statusChart) statusChart.destroy();
 
-    statusChart = new Chart(ctx, {
+    statusChart = new Chart(ctx.getContext('2d'), {
         type: 'doughnut',
         data: {
             labels: ['Hoàn thành', 'Đang thực hiện', 'Trễ hạn', 'Chờ phê duyệt', 'Chưa báo cáo'],
@@ -425,19 +562,161 @@ function renderStatusChart(tasks) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: {
-                        padding: 15,
-                        usePointStyle: true
-                    }
+                    labels: { padding: 15, usePointStyle: true }
                 }
             }
         }
     });
 }
 
-// === TASKS TABLE ===
+// ====================================================
+// PAGE 2: KPI PHÒNG BAN
+// ====================================================
+function renderKpiPhongBanPage() {
+    const container = document.getElementById('mainContainer');
+    const departments = getDepartmentData(allTasks);
+
+    container.innerHTML = `
+        <div class="dept-grid">
+            ${departments.map((dept, index) => `
+                <div class="dept-card">
+                    <div class="dept-header">
+                        <span class="rank-badge">#${index + 1}</span>
+                        <h4>${dept.name}</h4>
+                    </div>
+                    <div class="dept-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${dept.progress}%"></div>
+                            <span class="progress-text">${dept.progress.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    <div class="dept-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Số việc</span>
+                            <span class="stat-value">${dept.taskCount}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Khối lượng</span>
+                            <span class="stat-value">${dept.totalWeight}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Hoàn thành</span>
+                            <span class="stat-value text-green">${dept.stats.completed}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Trễ hạn</span>
+                            <span class="stat-value text-red">${dept.stats.overdue}</span>
+                        </div>
+                    </div>
+                    <div class="dept-tasks">
+                        <h5>Danh sách nhiệm vụ:</h5>
+                        <ul>
+                            ${dept.tasks.slice(0, 5).map(task => `
+                                <li class="${getTaskClass(task)}">
+                                    <span class="task-name">${task.nhiemVu}</span>
+                                    <span class="task-progress">${(task.phanTram * 100).toFixed(0)}%</span>
+                                </li>
+                            `).join('')}
+                            ${dept.tasks.length > 5 ? `<li class="more">+ ${dept.tasks.length - 5} nhiệm vụ khác...</li>` : ''}
+                        </ul>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function getTaskClass(task) {
+    if (task.trangThai === 'Hoàn thành') return 'task-completed';
+    if (task.trangThai === 'Trễ hạn') return 'task-overdue';
+    if (task.trangThai === 'Chưa báo cáo') return 'task-no-report';
+    return '';
+}
+
+// ====================================================
+// PAGE 3: THEO DÕI CÔNG VIỆC
+// ====================================================
+function renderTheodoiPage() {
+    const container = document.getElementById('mainContainer');
+    const departments = [...new Set(allTasks.map(t => t.phongBan).filter(d => d))];
+    const statuses = ['Hoàn thành', 'Đang thực hiện', 'Trễ hạn', 'Chờ phê duyệt', 'Chưa báo cáo'];
+
+    container.innerHTML = `
+        <div class="filter-bar">
+            <select id="filterDepartment">
+                <option value="">Tất cả phòng ban</option>
+                ${departments.map(d => `<option value="${d}" ${currentFilters.department === d ? 'selected' : ''}>${d}</option>`).join('')}
+            </select>
+            <select id="filterStatus">
+                <option value="">Tất cả trạng thái</option>
+                ${statuses.map(s => `<option value="${s}" ${currentFilters.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+            <button id="resetFilters" class="btn-secondary">Đặt lại</button>
+        </div>
+
+        <div class="section-card">
+            <div class="table-container">
+                <table id="tasksTable">
+                    <thead>
+                        <tr>
+                            <th>Mã</th>
+                            <th>Nhiệm vụ</th>
+                            <th>Phòng ban</th>
+                            <th>Cán bộ</th>
+                            <th>KL</th>
+                            <th>Tiến độ</th>
+                            <th>Trạng thái</th>
+                            <th>Hạn</th>
+                            <th>Cập nhật</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    // Setup filters
+    document.getElementById('filterDepartment').addEventListener('change', applyFilters);
+    document.getElementById('filterStatus').addEventListener('change', applyFilters);
+    document.getElementById('resetFilters').addEventListener('click', resetFilters);
+
+    // Render with current filters
+    applyFilters();
+}
+
+function applyFilters() {
+    const deptFilter = document.getElementById('filterDepartment')?.value || '';
+    const statusFilter = document.getElementById('filterStatus')?.value || '';
+
+    currentFilters.department = deptFilter;
+    currentFilters.status = statusFilter;
+
+    let filtered = allTasks;
+
+    if (deptFilter) {
+        filtered = filtered.filter(t => t.phongBan === deptFilter);
+    }
+
+    if (statusFilter) {
+        filtered = filtered.filter(t => t.trangThai === statusFilter);
+    }
+
+    renderTasksTable(filtered);
+}
+
+function resetFilters() {
+    currentFilters = { department: '', status: '' };
+    document.getElementById('filterDepartment').value = '';
+    document.getElementById('filterStatus').value = '';
+    renderTasksTable(allTasks);
+}
+
 function renderTasksTable(tasks) {
     const tbody = document.querySelector('#tasksTable tbody');
+    if (!tbody) return;
+
     tbody.innerHTML = '';
 
     tasks.forEach(task => {
@@ -454,14 +733,13 @@ function renderTasksTable(tasks) {
             row.style.borderLeft = '3px solid #f59e0b';
         }
 
-        // Cột hạn tô đỏ nếu trễ hạn
         const hanStyle = task.trangThai === 'Trễ hạn' ? 'color: #dc2626; font-weight: 600;' : '';
 
         row.innerHTML = `
             <td><strong>${task.maViec}</strong></td>
             <td>${task.nhiemVu}</td>
             <td>${task.phongBan}</td>
-            <td>${task.canBo}</td>
+            <td><a href="#" class="name-link" data-staff="${task.canBo}">${task.canBo}</a></td>
             <td>${task.khoiLuong}</td>
             <td>
                 <div class="progress-cell">
@@ -478,6 +756,15 @@ function renderTasksTable(tasks) {
         `;
         tbody.appendChild(row);
     });
+
+    // Add click handlers for staff names
+    document.querySelectorAll('.name-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const staffName = link.dataset.staff;
+            navigateTo('nhansu', { staff: staffName });
+        });
+    });
 }
 
 function getStatusClass(status) {
@@ -491,49 +778,301 @@ function getStatusClass(status) {
     return map[status] || '';
 }
 
-// === FILTERS ===
-function setupFilters() {
-    document.getElementById('filterDepartment').addEventListener('change', applyFilters);
-    document.getElementById('filterStatus').addEventListener('change', applyFilters);
-    document.getElementById('resetFilters').addEventListener('click', resetFilters);
-}
+// ====================================================
+// PAGE 4: NHÂN SỰ
+// ====================================================
+function renderNhanSuPage() {
+    const container = document.getElementById('mainContainer');
 
-function populateDepartmentFilter(tasks) {
-    const departments = [...new Set(tasks.map(t => t.phongBan).filter(d => d))];
-    const select = document.getElementById('filterDepartment');
+    // Group tasks by staff
+    const staffMap = {};
+    allTasks.forEach(task => {
+        const name = task.canBo;
+        if (!name) return;
 
-    // Keep first option
-    select.innerHTML = '<option value="">Tất cả phòng ban</option>';
+        if (!staffMap[name]) {
+            staffMap[name] = {
+                name: name,
+                department: task.phongBan,
+                tasks: [],
+                totalWeight: 0,
+                weightedProgress: 0
+            };
+        }
+        staffMap[name].tasks.push(task);
+        staffMap[name].totalWeight += task.khoiLuong;
+        staffMap[name].weightedProgress += task.khoiLuong * task.phanTram;
+    });
 
-    departments.forEach(dept => {
-        const option = document.createElement('option');
-        option.value = dept;
-        option.textContent = dept;
-        select.appendChild(option);
+    const staffList = Object.values(staffMap).map(s => {
+        const progress = s.totalWeight > 0 ? (s.weightedProgress / s.totalWeight) * 100 : 0;
+        return {
+            ...s,
+            progress: progress,
+            stats: {
+                completed: s.tasks.filter(t => t.trangThai === 'Hoàn thành').length,
+                inProgress: s.tasks.filter(t => t.trangThai === 'Đang thực hiện').length,
+                overdue: s.tasks.filter(t => t.trangThai === 'Trễ hạn').length,
+                noReport: s.tasks.filter(t => t.trangThai === 'Chưa báo cáo').length
+            }
+        };
+    }).sort((a, b) => b.progress - a.progress);
+
+    container.innerHTML = `
+        <div class="staff-grid">
+            ${staffList.map((staff, index) => `
+                <div class="staff-card" data-staff="${staff.name}">
+                    <div class="staff-header">
+                        <div class="staff-avatar">${staff.name.charAt(0).toUpperCase()}</div>
+                        <div class="staff-info">
+                            <h4>${staff.name}</h4>
+                            <span class="staff-dept">${staff.department}</span>
+                        </div>
+                        <span class="rank-badge">#${index + 1}</span>
+                    </div>
+                    <div class="staff-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${staff.progress}%"></div>
+                            <span class="progress-text">${staff.progress.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    <div class="staff-stats">
+                        <span class="stat-pill completed">${staff.stats.completed} HT</span>
+                        <span class="stat-pill in-progress">${staff.stats.inProgress} ĐTH</span>
+                        <span class="stat-pill overdue">${staff.stats.overdue} Trễ</span>
+                        <span class="stat-pill no-report">${staff.stats.noReport} Chưa BC</span>
+                    </div>
+                    <div class="staff-meta">
+                        <span>${staff.tasks.length} nhiệm vụ</span>
+                        <span>KL: ${staff.totalWeight}</span>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    // Add click handlers
+    document.querySelectorAll('.staff-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const staffName = card.dataset.staff;
+            navigateTo('nhansu', { staff: staffName });
+        });
     });
 }
 
-function applyFilters() {
-    const deptFilter = document.getElementById('filterDepartment').value;
-    const statusFilter = document.getElementById('filterStatus').value;
+function renderStaffProfile(staffName) {
+    currentStaffProfile = staffName;
+    const container = document.getElementById('mainContainer');
 
-    let filtered = allTasks;
-
-    if (deptFilter) {
-        filtered = filtered.filter(t => t.phongBan === deptFilter);
+    const staffTasks = allTasks.filter(t => t.canBo === staffName);
+    if (staffTasks.length === 0) {
+        container.innerHTML = `<p>Không tìm thấy cán bộ: ${staffName}</p>`;
+        return;
     }
 
-    if (statusFilter) {
-        filtered = filtered.filter(t => t.trangThai === statusFilter);
-    }
+    const department = staffTasks[0].phongBan;
+    let totalWeight = 0, weightedProgress = 0;
+    staffTasks.forEach(t => {
+        totalWeight += t.khoiLuong;
+        weightedProgress += t.khoiLuong * t.phanTram;
+    });
+    const progress = totalWeight > 0 ? (weightedProgress / totalWeight) * 100 : 0;
 
-    renderTasksTable(filtered);
+    const stats = {
+        completed: staffTasks.filter(t => t.trangThai === 'Hoàn thành').length,
+        inProgress: staffTasks.filter(t => t.trangThai === 'Đang thực hiện').length,
+        overdue: staffTasks.filter(t => t.trangThai === 'Trễ hạn').length,
+        pending: staffTasks.filter(t => t.trangThai === 'Chờ phê duyệt').length,
+        noReport: staffTasks.filter(t => t.trangThai === 'Chưa báo cáo').length
+    };
+
+    // Update header
+    document.getElementById('pageTitle').textContent = staffName;
+    document.getElementById('pageSubtitle').textContent = `Hồ sơ cán bộ · ${department}`;
+
+    container.innerHTML = `
+        <button class="back-btn" id="backToStaffList">
+            <i class="ti ti-arrow-left"></i> Quay lại danh sách
+        </button>
+
+        <div class="profile-header">
+            <div class="profile-avatar">${staffName.charAt(0).toUpperCase()}</div>
+            <div class="profile-info">
+                <h2>${staffName}</h2>
+                <p>${department}</p>
+            </div>
+            <div class="profile-progress">
+                <div class="progress-circle" style="--progress: ${progress}%">
+                    <span>${progress.toFixed(1)}%</span>
+                </div>
+                <span>Tiến độ chung</span>
+            </div>
+        </div>
+
+        <div class="profile-stats">
+            <div class="stat-box total">
+                <span class="stat-num">${staffTasks.length}</span>
+                <span class="stat-label">Tổng việc</span>
+            </div>
+            <div class="stat-box completed">
+                <span class="stat-num">${stats.completed}</span>
+                <span class="stat-label">Hoàn thành</span>
+            </div>
+            <div class="stat-box in-progress">
+                <span class="stat-num">${stats.inProgress}</span>
+                <span class="stat-label">Đang TH</span>
+            </div>
+            <div class="stat-box overdue">
+                <span class="stat-num">${stats.overdue}</span>
+                <span class="stat-label">Trễ hạn</span>
+            </div>
+            <div class="stat-box no-report">
+                <span class="stat-num">${stats.noReport}</span>
+                <span class="stat-label">Chưa BC</span>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h3>Danh sách nhiệm vụ</h3>
+            <div class="table-container">
+                <table id="staffTasksTable">
+                    <thead>
+                        <tr>
+                            <th>Mã</th>
+                            <th>Nhiệm vụ</th>
+                            <th>KL</th>
+                            <th>Tiến độ</th>
+                            <th>Trạng thái</th>
+                            <th>Hạn</th>
+                            <th>Cập nhật</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${staffTasks.map(task => {
+                            const statusClass = getStatusClass(task.trangThai);
+                            const pct = (task.phanTram * 100).toFixed(0);
+                            let rowStyle = '';
+                            if (task.trangThai === 'Chưa báo cáo') {
+                                rowStyle = 'background: #fef2f2; border-left: 3px solid #dc2626;';
+                            } else if (task.trangThai === 'Trễ hạn') {
+                                rowStyle = 'background: #fff7ed; border-left: 3px solid #f59e0b;';
+                            }
+                            return `
+                                <tr style="${rowStyle}">
+                                    <td><strong>${task.maViec}</strong></td>
+                                    <td>${task.nhiemVu}</td>
+                                    <td>${task.khoiLuong}</td>
+                                    <td>
+                                        <div class="progress-cell">
+                                            <div class="progress-mini">
+                                                <div class="progress-mini-bar" style="width: ${pct}%"></div>
+                                            </div>
+                                            <span>${pct}%</span>
+                                        </div>
+                                    </td>
+                                    <td><span class="status-badge ${statusClass}">${task.trangThai}</span></td>
+                                    <td>${task.hanHoanThanh}</td>
+                                    <td>${task.ngayCapNhat}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('backToStaffList').addEventListener('click', () => {
+        currentStaffProfile = null;
+        document.getElementById('pageTitle').textContent = 'Nhân sự';
+        document.getElementById('pageSubtitle').textContent = 'Danh sách cán bộ và nhiệm vụ';
+        renderNhanSuPage();
+    });
 }
 
-function resetFilters() {
-    document.getElementById('filterDepartment').value = '';
-    document.getElementById('filterStatus').value = '';
-    renderTasksTable(allTasks);
+// ====================================================
+// PAGE 5: CẦN CẬP NHẬT
+// ====================================================
+function renderCanCapNhatPage() {
+    const container = document.getElementById('mainContainer');
+
+    const chuaBaoCao = allTasks.filter(t => t.trangThai === 'Chưa báo cáo');
+    const treHan = allTasks.filter(t => t.trangThai === 'Trễ hạn');
+
+    container.innerHTML = `
+        <div class="urgent-section">
+            <h3><i class="ti ti-alert-circle"></i> Chưa báo cáo (${chuaBaoCao.length})</h3>
+            ${chuaBaoCao.length === 0 ? '<p class="empty-msg">Không có nhiệm vụ nào chưa báo cáo.</p>' : `
+                <div class="table-container">
+                    <table class="urgent-table">
+                        <thead>
+                            <tr>
+                                <th>Mã</th>
+                                <th>Nhiệm vụ</th>
+                                <th>Phòng ban</th>
+                                <th>Cán bộ</th>
+                                <th>KL</th>
+                                <th>Hạn</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${chuaBaoCao.map(task => `
+                                <tr>
+                                    <td><strong>${task.maViec}</strong></td>
+                                    <td>${task.nhiemVu}</td>
+                                    <td>${task.phongBan}</td>
+                                    <td><a href="#" class="name-link" data-staff="${task.canBo}">${task.canBo}</a></td>
+                                    <td>${task.khoiLuong}</td>
+                                    <td>${task.hanHoanThanh}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `}
+        </div>
+
+        <div class="warning-section">
+            <h3><i class="ti ti-clock-exclamation"></i> Trễ hạn (${treHan.length})</h3>
+            ${treHan.length === 0 ? '<p class="empty-msg">Không có nhiệm vụ nào trễ hạn.</p>' : `
+                <div class="table-container">
+                    <table class="warning-table">
+                        <thead>
+                            <tr>
+                                <th>Mã</th>
+                                <th>Nhiệm vụ</th>
+                                <th>Phòng ban</th>
+                                <th>Cán bộ</th>
+                                <th>Tiến độ</th>
+                                <th>Hạn</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${treHan.map(task => `
+                                <tr>
+                                    <td><strong>${task.maViec}</strong></td>
+                                    <td>${task.nhiemVu}</td>
+                                    <td>${task.phongBan}</td>
+                                    <td><a href="#" class="name-link" data-staff="${task.canBo}">${task.canBo}</a></td>
+                                    <td>${(task.phanTram * 100).toFixed(0)}%</td>
+                                    <td style="color: #dc2626; font-weight: 600;">${task.hanHoanThanh}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `}
+        </div>
+    `;
+
+    // Add click handlers for staff names
+    document.querySelectorAll('.name-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const staffName = link.dataset.staff;
+            navigateTo('nhansu', { staff: staffName });
+        });
+    });
 }
 
 // === HELPERS ===
@@ -546,15 +1085,26 @@ function updateLastUpdate() {
         hour: '2-digit',
         minute: '2-digit'
     });
-    document.getElementById('lastUpdate').textContent = formatted;
+    const el = document.getElementById('lastUpdate');
+    if (el) el.textContent = formatted;
 }
 
 function showLoading() {
-    const tbody = document.querySelector('#tasksTable tbody');
-    tbody.innerHTML = '<tr><td colspan="10" class="loading">Đang tải dữ liệu...</td></tr>';
+    const container = document.getElementById('mainContainer');
+    container.innerHTML = `
+        <div class="loading-page">
+            <i class="ti ti-loader-2 spin"></i> Đang tải dữ liệu...
+        </div>
+    `;
 }
 
 function showError(message) {
-    const tbody = document.querySelector('#tasksTable tbody');
-    tbody.innerHTML = `<tr><td colspan="10" class="error">${message}</td></tr>`;
+    const container = document.getElementById('mainContainer');
+    container.innerHTML = `
+        <div class="error-page">
+            <i class="ti ti-alert-triangle"></i>
+            <p>${message}</p>
+            <button onclick="fetchData()" class="btn-primary">Thử lại</button>
+        </div>
+    `;
 }
