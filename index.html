@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard KPI - UBND xã Phú Thành</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Dashboard KPI</h1>
+            <p class="subtitle">UBND xã Phú Thành · Kỳ 06/2026</p>
+        </div>
+        <div class="last-update">
+            Cập nhật: <span id="lastUpdate">--</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- Tổng quan -->
+        <section class="overview-cards">
+            <div class="card total">
+                <div class="card-icon">📋</div>
+                <div class="card-content">
+                    <span class="card-value" id="totalTasks">--</span>
+                    <span class="card-label">Tổng nhiệm vụ</span>
+                </div>
+            </div>
+            <div class="card completed">
+                <div class="card-icon">✅</div>
+                <div class="card-content">
+                    <span class="card-value" id="completedTasks">--</span>
+                    <span class="card-label">Hoàn thành</span>
+                </div>
+            </div>
+            <div class="card in-progress">
+                <div class="card-icon">🔄</div>
+                <div class="card-content">
+                    <span class="card-value" id="inProgressTasks">--</span>
+                    <span class="card-label">Đang thực hiện</span>
+                </div>
+            </div>
+            <div class="card overdue">
+                <div class="card-icon">⚠️</div>
+                <div class="card-content">
+                    <span class="card-value" id="overdueTasks">--</span>
+                    <span class="card-label">Trễ hạn</span>
+                </div>
+            </div>
+            <div class="card pending">
+                <div class="card-icon">⏳</div>
+                <div class="card-content">
+                    <span class="card-value" id="pendingTasks">--</span>
+                    <span class="card-label">Chờ phê duyệt</span>
+                </div>
+            </div>
+            <div class="card no-report">
+                <div class="card-icon">📝</div>
+                <div class="card-content">
+                    <span class="card-value" id="noReportTasks">--</span>
+                    <span class="card-label">Chưa báo cáo</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tiến độ tổng -->
+        <section class="progress-section">
+            <h2>Tiến độ toàn xã</h2>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="overallProgress"></div>
+                <span class="progress-text" id="overallProgressText">0%</span>
+            </div>
+        </section>
+
+        <!-- Charts và Bảng phòng ban -->
+        <section class="charts-section">
+            <div class="chart-container">
+                <h2>Tiến độ theo Phòng ban</h2>
+                <canvas id="departmentChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2>Phân bố Trạng thái</h2>
+                <canvas id="statusChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Bảng tổng hợp phòng ban -->
+        <section class="department-table-section">
+            <h2>Tổng hợp theo Phòng ban</h2>
+            <div class="table-responsive">
+                <table id="departmentTable">
+                    <thead>
+                        <tr>
+                            <th>Phòng ban</th>
+                            <th>Số nhiệm vụ</th>
+                            <th>Khối lượng</th>
+                            <th>% Hoàn thành</th>
+                            <th>Hoàn thành</th>
+                            <th>Đang TH</th>
+                            <th>Trễ hạn</th>
+                            <th>Chờ duyệt</th>
+                            <th>Chưa BC</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Bộ lọc -->
+        <section class="filter-section">
+            <h2>Chi tiết Nhiệm vụ</h2>
+            <div class="filters">
+                <select id="filterDepartment">
+                    <option value="">Tất cả phòng ban</option>
+                </select>
+                <select id="filterStatus">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="Hoàn thành">Hoàn thành</option>
+                    <option value="Đang thực hiện">Đang thực hiện</option>
+                    <option value="Trễ hạn">Trễ hạn</option>
+                    <option value="Chờ phê duyệt">Chờ phê duyệt</option>
+                    <option value="Chưa báo cáo">Chưa báo cáo</option>
+                </select>
+                <button id="resetFilters">Xóa bộ lọc</button>
+            </div>
+        </section>
+
+        <!-- Bảng chi tiết -->
+        <section class="tasks-table-section">
+            <div class="table-responsive">
+                <table id="tasksTable">
+                    <thead>
+                        <tr>
+                            <th>Mã việc</th>
+                            <th>Nhiệm vụ</th>
+                            <th>Phòng ban</th>
+                            <th>Cán bộ</th>
+                            <th>KL</th>
+                            <th>%</th>
+                            <th>Trạng thái</th>
+                            <th>Hạn</th>
+                            <th>Cập nhật</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Dashboard KPI UBND xã Phú Thành · Dữ liệu từ Google Sheets</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
