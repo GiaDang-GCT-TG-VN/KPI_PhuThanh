@@ -102,13 +102,20 @@ function renderPage(page, data = null) {
         case 'can-capnhat':
             renderCanCapNhatPage();
             break;
-        // Placeholder pages
         case 'bo-kpi':
+            renderBoKPIPage();
+            break;
         case 'capnhat-solieu':
+            renderCapNhatSoLieuPage();
+            break;
         case 'kpi-canhan':
+            renderKPICaNhanPage(data);
+            break;
         case 'phancong':
+            renderPhanCongPage();
+            break;
         case 'nguoidung':
-            renderPlaceholderPage(page);
+            renderNguoiDungPage();
             break;
         default:
             renderDashboardPage();
@@ -1087,6 +1094,610 @@ function renderCanCapNhatPage() {
             navigateTo('nhansu', { staff: staffName });
         });
     });
+}
+
+// ====================================================
+// PAGE 6: BỘ KPI
+// ====================================================
+function renderBoKPIPage() {
+    const container = document.getElementById('mainContainer');
+    const stats = calculateStats(allTasks);
+    const overallProgress = calculateWeightedProgress(allTasks);
+    const departments = getDepartmentData(allTasks);
+    const totalKL = allTasks.reduce((s, t) => s + t.khoiLuong, 0);
+
+    // KPI targets (có thể config)
+    const targets = {
+        pctHoanThanh: 80,
+        hoanThanhTasks: stats.total,
+        treHan: 0,
+        chuaBaoCao: 0,
+        choPhe: 0
+    };
+
+    // Đánh giá function
+    function evaluate(actual, target, isLowerBetter = false) {
+        if (isLowerBetter) {
+            if (actual === 0) return { class: 'eval-pass', text: '✅ Đạt' };
+            return { class: 'eval-fail', text: `🔴 Còn ${actual}` };
+        }
+        const ratio = actual / target;
+        if (ratio >= 1) return { class: 'eval-pass', text: '✅ Đạt' };
+        if (ratio >= 0.7) return { class: 'eval-warning', text: '🟡 Gần đạt' };
+        return { class: 'eval-fail', text: '🔴 Chưa đạt' };
+    }
+
+    const evalPct = evaluate(overallProgress, targets.pctHoanThanh);
+    const evalHT = evaluate(stats.completed, targets.hoanThanhTasks);
+    const evalTre = evaluate(stats.overdue, targets.treHan, true);
+    const evalChuaBC = evaluate(stats.noReport, targets.chuaBaoCao, true);
+    const evalCho = stats.pending > 0
+        ? { class: 'eval-warning', text: `🟡 Cần duyệt ${stats.pending}` }
+        : { class: 'eval-pass', text: '✅ Đã duyệt hết' };
+
+    container.innerHTML = `
+        <div class="section-card">
+            <h3><i class="ti ti-target"></i> Bảng KPI toàn xã · Kỳ 06/2026</h3>
+            <div class="table-container">
+                <table class="kpi-table">
+                    <thead>
+                        <tr>
+                            <th>Chỉ tiêu</th>
+                            <th>Mục tiêu</th>
+                            <th>Thực tế</th>
+                            <th>Đánh giá</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>% hoàn thành toàn xã</strong></td>
+                            <td>${targets.pctHoanThanh}%</td>
+                            <td><strong>${overallProgress.toFixed(1)}%</strong></td>
+                            <td><span class="eval-pill ${evalPct.class}">${evalPct.text}</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tổng nhiệm vụ</strong></td>
+                            <td>${stats.total}</td>
+                            <td><strong>${stats.total}</strong></td>
+                            <td><span class="eval-pill eval-pass">✅ Đạt</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Nhiệm vụ hoàn thành</strong></td>
+                            <td>${targets.hoanThanhTasks} (100%)</td>
+                            <td><strong>${stats.completed}</strong></td>
+                            <td><span class="eval-pill ${evalHT.class}">${evalHT.text}</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Trễ hạn</strong></td>
+                            <td>0</td>
+                            <td style="color: ${stats.overdue > 0 ? '#dc2626' : 'inherit'}"><strong>${stats.overdue}</strong></td>
+                            <td><span class="eval-pill ${evalTre.class}">${evalTre.text}</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chưa báo cáo</strong></td>
+                            <td>0</td>
+                            <td style="color: ${stats.noReport > 0 ? '#dc2626' : 'inherit'}"><strong>${stats.noReport}</strong></td>
+                            <td><span class="eval-pill ${evalChuaBC.class}">${evalChuaBC.text}</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chờ phê duyệt</strong></td>
+                            <td>0</td>
+                            <td><strong>${stats.pending}</strong></td>
+                            <td><span class="eval-pill ${evalCho.class}">${evalCho.text}</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h3><i class="ti ti-building"></i> KPI theo phòng ban</h3>
+            <div class="table-container">
+                <table class="kpi-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Phòng ban</th>
+                            <th>Mục tiêu</th>
+                            <th>Thực tế</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${departments.map((dept, i) => {
+                            const deptEval = evaluate(dept.progress, targets.pctHoanThanh);
+                            let statusText = deptEval.text;
+                            if (dept.progress >= targets.pctHoanThanh) {
+                                statusText = dept.progress > targets.pctHoanThanh ? '✅ Vượt' : '✅ Đạt';
+                            }
+                            return `
+                                <tr>
+                                    <td><span class="rank-badge">${i + 1}</span></td>
+                                    <td><strong>${dept.name}</strong></td>
+                                    <td>${targets.pctHoanThanh}%</td>
+                                    <td>
+                                        <div class="progress-cell">
+                                            <div class="progress-mini">
+                                                <div class="progress-mini-bar" style="width: ${dept.progress}%"></div>
+                                            </div>
+                                            <span><strong>${dept.progress.toFixed(1)}%</strong></span>
+                                        </div>
+                                    </td>
+                                    <td><span class="eval-pill ${deptEval.class}">${statusText}</span></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="kpi-summary-cards">
+            <div class="summary-card">
+                <div class="summary-icon"><i class="ti ti-list-check"></i></div>
+                <div class="summary-content">
+                    <div class="summary-value">${stats.total}</div>
+                    <div class="summary-label">Tổng nhiệm vụ</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon"><i class="ti ti-weight"></i></div>
+                <div class="summary-content">
+                    <div class="summary-value">${totalKL}</div>
+                    <div class="summary-label">Tổng khối lượng</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon"><i class="ti ti-users"></i></div>
+                <div class="summary-content">
+                    <div class="summary-value">${departments.length}</div>
+                    <div class="summary-label">Phòng ban</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon"><i class="ti ti-user"></i></div>
+                <div class="summary-content">
+                    <div class="summary-value">${[...new Set(allTasks.map(t => t.canBo).filter(Boolean))].length}</div>
+                    <div class="summary-label">Cán bộ</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ====================================================
+// PAGE 7: CẬP NHẬT SỐ LIỆU
+// ====================================================
+function renderCapNhatSoLieuPage() {
+    const container = document.getElementById('mainContainer');
+    const stats = calculateStats(allTasks);
+    const reported = stats.total - stats.noReport;
+
+    // Extract Sheet ID from CSV URL
+    const sheetIdMatch = SHEET_CSV_URL.match(/\/d\/e\/([^/]+)/);
+    const publishedId = sheetIdMatch ? sheetIdMatch[1] : '';
+    // For published sheets, we need the original sheet ID
+    // The edit URL format is different - we'll use a general link
+    const editUrl = 'https://docs.google.com/spreadsheets/d/1zJUKJV-QdBSr3xVBkCyMCYMcJLYuDdZS8kzBQK0QfCg/edit';
+
+    const lastUpdateEl = document.getElementById('lastUpdate');
+    const lastUpdateTime = lastUpdateEl ? lastUpdateEl.textContent : '--';
+
+    container.innerHTML = `
+        <div class="capnhat-container">
+            <div class="section-card capnhat-guide">
+                <h3><i class="ti ti-clipboard-text"></i> Cách cập nhật báo cáo</h3>
+                <div class="guide-steps">
+                    <div class="guide-step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Mở Google Sheets</strong>
+                            <p>Bấm nút bên dưới để mở file báo cáo</p>
+                        </div>
+                    </div>
+                    <div class="guide-step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Tìm dòng nhiệm vụ của mình</strong>
+                            <p>Tra theo Mã việc (CV001, CV002...) hoặc tên cán bộ</p>
+                        </div>
+                    </div>
+                    <div class="guide-step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <strong>Sửa cột "% hoàn thành"</strong>
+                            <p>Nhập số từ 0 đến 100 (không cần dấu %)</p>
+                        </div>
+                    </div>
+                    <div class="guide-step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <strong>Chọn "Trạng thái"</strong>
+                            <p>Dropdown: Hoàn thành, Đang TH, Trễ hạn, Chờ duyệt</p>
+                        </div>
+                    </div>
+                    <div class="guide-step">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <strong>Ghi chú (nếu cần)</strong>
+                            <p>Thêm thông tin bổ sung vào cột Ghi chú</p>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="${editUrl}" target="_blank" class="btn-open-sheet">
+                    <i class="ti ti-external-link"></i> Mở Google Sheets
+                </a>
+            </div>
+
+            <div class="section-card capnhat-warning">
+                <h3><i class="ti ti-alert-circle"></i> Lưu ý quan trọng</h3>
+                <ul class="warning-list">
+                    <li><i class="ti ti-check"></i> <strong>CHỈ</strong> sửa các cột: % hoàn thành, Trạng thái, Ngày cập nhật, Ghi chú</li>
+                    <li><i class="ti ti-x"></i> <strong>KHÔNG</strong> sửa cột: Mã việc, Nhiệm vụ, Phòng ban, Cán bộ, Khối lượng, Hạn</li>
+                    <li><i class="ti ti-clock"></i> Dashboard tự cập nhật sau <strong>~5 phút</strong> hoặc bấm nút "Cập nhật"</li>
+                    <li><i class="ti ti-alert-triangle"></i> Chưa nhập = tính là <strong>chưa thực hiện (0%)</strong></li>
+                </ul>
+            </div>
+
+            <div class="section-card capnhat-status">
+                <h3><i class="ti ti-chart-pie"></i> Trạng thái báo cáo hiện tại</h3>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-progress">
+                            <div class="status-progress-bar" style="width: ${(reported / stats.total * 100).toFixed(0)}%"></div>
+                        </div>
+                        <div class="status-text">
+                            <strong>${reported}/${stats.total}</strong> nhiệm vụ đã báo cáo
+                        </div>
+                    </div>
+                    <div class="status-item highlight-red">
+                        <i class="ti ti-file-alert"></i>
+                        <div class="status-text">
+                            <strong>${stats.noReport}</strong> nhiệm vụ chưa báo cáo
+                            ${stats.noReport > 0 ? '<span class="status-note">(hiện đỏ trên dashboard)</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <i class="ti ti-clock"></i>
+                        <div class="status-text">
+                            Cập nhật lần cuối: <strong>${lastUpdateTime}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ====================================================
+// PAGE 8: KPI CÁ NHÂN
+// ====================================================
+let selectedStaffKPI = null;
+
+function renderKPICaNhanPage(data = null) {
+    const container = document.getElementById('mainContainer');
+
+    // Lấy danh sách cán bộ unique
+    const staffList = [...new Set(allTasks.map(t => t.canBo).filter(Boolean))].sort();
+
+    // Nếu có data.staff từ navigation, set selected
+    if (data && data.staff) {
+        selectedStaffKPI = data.staff;
+    }
+
+    let profileHTML = '';
+    if (selectedStaffKPI) {
+        profileHTML = renderKPICaNhanProfile(selectedStaffKPI);
+    } else {
+        profileHTML = `
+            <div class="kpi-canhan-empty">
+                <i class="ti ti-user-search"></i>
+                <p>Chọn cán bộ từ dropdown để xem KPI cá nhân</p>
+            </div>
+        `;
+    }
+
+    container.innerHTML = `
+        <div class="kpi-canhan-header">
+            <label for="selectStaff">Chọn cán bộ:</label>
+            <select id="selectStaff" class="staff-select">
+                <option value="">-- Chọn cán bộ --</option>
+                ${staffList.map(s => `<option value="${s}" ${selectedStaffKPI === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+        </div>
+        <div id="kpiCaNhanProfile">
+            ${profileHTML}
+        </div>
+    `;
+
+    // Setup dropdown handler
+    document.getElementById('selectStaff').addEventListener('change', (e) => {
+        selectedStaffKPI = e.target.value;
+        const profileContainer = document.getElementById('kpiCaNhanProfile');
+        if (selectedStaffKPI) {
+            profileContainer.innerHTML = renderKPICaNhanProfile(selectedStaffKPI);
+        } else {
+            profileContainer.innerHTML = `
+                <div class="kpi-canhan-empty">
+                    <i class="ti ti-user-search"></i>
+                    <p>Chọn cán bộ từ dropdown để xem KPI cá nhân</p>
+                </div>
+            `;
+        }
+    });
+}
+
+function renderKPICaNhanProfile(staffName) {
+    const staffTasks = allTasks.filter(t => t.canBo === staffName);
+    if (staffTasks.length === 0) {
+        return `<p class="error-msg">Không tìm thấy nhiệm vụ của cán bộ: ${staffName}</p>`;
+    }
+
+    const department = staffTasks[0].phongBan;
+    let totalWeight = 0, weightedProgress = 0;
+    staffTasks.forEach(t => {
+        totalWeight += t.khoiLuong;
+        weightedProgress += t.khoiLuong * t.phanTram;
+    });
+    const progress = totalWeight > 0 ? (weightedProgress / totalWeight) * 100 : 0;
+
+    const stats = {
+        total: staffTasks.length,
+        completed: staffTasks.filter(t => t.trangThai === 'Hoàn thành').length,
+        inProgress: staffTasks.filter(t => t.trangThai === 'Đang thực hiện').length,
+        overdue: staffTasks.filter(t => t.trangThai === 'Trễ hạn').length,
+        pending: staffTasks.filter(t => t.trangThai === 'Chờ phê duyệt').length,
+        noReport: staffTasks.filter(t => t.trangThai === 'Chưa báo cáo').length
+    };
+
+    return `
+        <div class="kpi-canhan-profile">
+            <div class="profile-header">
+                <div class="profile-avatar">${staffName.charAt(0).toUpperCase()}</div>
+                <div class="profile-info">
+                    <h2>${staffName}</h2>
+                    <p>${department} · Kỳ 06/2026</p>
+                </div>
+                <div class="profile-progress">
+                    <div class="progress-circle" style="--progress: ${progress}%">
+                        <span>${progress.toFixed(1)}%</span>
+                    </div>
+                    <span>Tiến độ KPI</span>
+                </div>
+            </div>
+
+            <div class="kpi-canhan-cards">
+                <div class="mini-card">
+                    <div class="mini-value">${stats.total}</div>
+                    <div class="mini-label">Nhiệm vụ</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-value">${totalWeight}</div>
+                    <div class="mini-label">Khối lượng</div>
+                </div>
+                <div class="mini-card highlight-green">
+                    <div class="mini-value">${stats.completed}</div>
+                    <div class="mini-label">Hoàn thành</div>
+                </div>
+                <div class="mini-card ${stats.noReport > 0 ? 'highlight-red' : ''}">
+                    <div class="mini-value">${stats.noReport}</div>
+                    <div class="mini-label">Chưa BC</div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h3>Danh sách nhiệm vụ</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Mã</th>
+                                <th>Nhiệm vụ</th>
+                                <th>KL</th>
+                                <th>Tiến độ</th>
+                                <th>Trạng thái</th>
+                                <th>Hạn</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${staffTasks.map(task => {
+                                const statusClass = getStatusClass(task.trangThai);
+                                const pct = (task.phanTram * 100).toFixed(0);
+                                let rowClass = '';
+                                if (task.trangThai === 'Chưa báo cáo') rowClass = 'row-unreported';
+                                else if (task.trangThai === 'Trễ hạn') rowClass = 'row-overdue';
+                                return `
+                                    <tr class="${rowClass}">
+                                        <td><strong>${task.maViec}</strong></td>
+                                        <td>${task.nhiemVu}</td>
+                                        <td>${task.khoiLuong}</td>
+                                        <td>
+                                            <div class="progress-cell">
+                                                <div class="progress-mini">
+                                                    <div class="progress-mini-bar" style="width: ${pct}%"></div>
+                                                </div>
+                                                <span>${pct}%</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-badge ${statusClass}">${task.trangThai}</span></td>
+                                        <td>${task.hanHoanThanh}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ====================================================
+// PAGE 9: PHÂN CÔNG CÔNG VIỆC
+// ====================================================
+function renderPhanCongPage() {
+    const container = document.getElementById('mainContainer');
+    const departments = [...new Set(allTasks.map(t => t.phongBan).filter(Boolean))];
+    const totalKL = allTasks.reduce((s, t) => s + t.khoiLuong, 0);
+
+    let html = '';
+    departments.forEach(dept => {
+        const deptTasks = allTasks.filter(t => t.phongBan === dept);
+        const deptKL = deptTasks.reduce((s, t) => s + t.khoiLuong, 0);
+        const staffInDept = [...new Set(deptTasks.map(t => t.canBo).filter(Boolean))];
+
+        html += `
+            <div class="phancong-dept" data-dept="${dept}">
+                <div class="dept-header-pc" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <i class="ti ti-folder"></i>
+                    <strong>${dept}</strong>
+                    <span class="dept-meta-pc">${deptTasks.length} việc · KL: ${deptKL}</span>
+                    <i class="ti ti-chevron-down toggle-icon"></i>
+                </div>
+                <div class="dept-body-pc">
+        `;
+
+        staffInDept.forEach(staff => {
+            const staffTasks = deptTasks.filter(t => t.canBo === staff);
+            const staffKL = staffTasks.reduce((s, t) => s + t.khoiLuong, 0);
+
+            html += `
+                <div class="staff-group-pc">
+                    <div class="staff-name-pc">
+                        <i class="ti ti-user"></i> ${staff}
+                        <span class="staff-meta-pc">${staffTasks.length} việc · KL: ${staffKL}</span>
+                    </div>
+                    <div class="task-list-pc">
+            `;
+
+            staffTasks.forEach(task => {
+                const pct = (task.phanTram * 100).toFixed(0);
+                const statusClass = getStatusClass(task.trangThai);
+                let taskClass = '';
+                if (task.trangThai === 'Chưa báo cáo') taskClass = 'task-unreported';
+                else if (task.trangThai === 'Trễ hạn') taskClass = 'task-overdue-pc';
+
+                html += `
+                    <div class="task-row-pc ${taskClass}">
+                        <span class="task-code-pc">${task.maViec}</span>
+                        <span class="task-name-pc">${task.nhiemVu}</span>
+                        <span class="task-pct-pc">${pct}%</span>
+                        <span class="status-badge ${statusClass}">${task.trangThai}</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = `
+        <div class="phancong-summary">
+            <div class="summary-item">
+                <i class="ti ti-list-check"></i>
+                <span><strong>${allTasks.length}</strong> nhiệm vụ</span>
+            </div>
+            <div class="summary-item">
+                <i class="ti ti-building"></i>
+                <span><strong>${departments.length}</strong> phòng ban</span>
+            </div>
+            <div class="summary-item">
+                <i class="ti ti-weight"></i>
+                <span>Tổng KL: <strong>${totalKL}</strong></span>
+            </div>
+        </div>
+        <div class="phancong-tree">
+            ${html}
+        </div>
+    `;
+}
+
+// ====================================================
+// PAGE 10: NGƯỜI DÙNG
+// ====================================================
+function renderNguoiDungPage() {
+    const container = document.getElementById('mainContainer');
+
+    // Lấy danh sách người dùng unique từ tasks
+    const users = [];
+    const seen = new Set();
+    allTasks.forEach(t => {
+        if (t.canBo && !seen.has(t.canBo)) {
+            seen.add(t.canBo);
+            const userTasks = allTasks.filter(x => x.canBo === t.canBo);
+            users.push({
+                ten: t.canBo,
+                dept: t.phongBan,
+                soViec: userTasks.length,
+                khoiLuong: userTasks.reduce((s, x) => s + x.khoiLuong, 0),
+                vai: 'Cán bộ'
+            });
+        }
+    });
+
+    // Thêm Chủ tịch (hardcode)
+    users.unshift({
+        ten: 'Nguyễn Nam',
+        dept: 'Lãnh đạo UBND',
+        soViec: '-',
+        khoiLuong: '-',
+        vai: 'Chủ tịch'
+    });
+
+    const departments = [...new Set(allTasks.map(t => t.phongBan).filter(Boolean))];
+
+    container.innerHTML = `
+        <div class="nguoidung-summary">
+            <span><strong>${users.length}</strong> người dùng</span>
+            <span>·</span>
+            <span><strong>${departments.length}</strong> phòng ban</span>
+        </div>
+
+        <div class="section-card">
+            <div class="table-container">
+                <table class="nguoidung-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Họ tên</th>
+                            <th>Phòng ban</th>
+                            <th>Vai trò</th>
+                            <th>Số việc</th>
+                            <th>Khối lượng</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${users.map((u, i) => `
+                            <tr>
+                                <td>${i + 1}</td>
+                                <td><strong>${u.ten}</strong></td>
+                                <td>${u.dept}</td>
+                                <td><span class="role-pill ${u.vai === 'Chủ tịch' ? 'role-admin' : 'role-user'}">${u.vai}</span></td>
+                                <td>${u.soViec}</td>
+                                <td>${u.khoiLuong}</td>
+                                <td><span class="status-pill active"><i class="ti ti-circle-filled"></i> Hoạt động</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="nguoidung-note">
+            <i class="ti ti-info-circle"></i>
+            <span>Thêm/sửa/xóa tài khoản và phân quyền chi tiết sẽ có trong phiên bản <strong>App riêng (Bước 3 — FastAPI + JWT)</strong></span>
+        </div>
+    `;
 }
 
 // === HELPERS ===
