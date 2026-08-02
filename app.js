@@ -15,10 +15,15 @@ let currentStaffProfile = null;
 // === PAGE TITLES ===
 const pageTitles = {
     'dashboard': { title: 'Dashboard', subtitle: 'Tổng quan KPI toàn xã · Kỳ 06/2026' },
+    'bo-kpi': { title: 'Bộ KPI', subtitle: 'Quản lý các chỉ tiêu KPI' },
+    'capnhat-solieu': { title: 'Cập nhật số liệu', subtitle: 'Nhập liệu KPI định kỳ' },
+    'kpi-canhan': { title: 'KPI cá nhân', subtitle: 'Theo dõi KPI từng cán bộ' },
     'kpi-phongban': { title: 'KPI Phòng ban', subtitle: 'Chi tiết tiến độ từng phòng ban' },
+    'phancong': { title: 'Phân công công việc', subtitle: 'Giao việc và theo dõi' },
     'theodoi': { title: 'Theo dõi công việc', subtitle: 'Danh sách nhiệm vụ và tiến độ' },
     'nhansu': { title: 'Nhân sự', subtitle: 'Danh sách cán bộ và nhiệm vụ' },
-    'can-capnhat': { title: 'Cần cập nhật', subtitle: 'Nhiệm vụ chưa báo cáo, trễ hạn' }
+    'can-capnhat': { title: 'Cần cập nhật', subtitle: 'Nhiệm vụ chưa báo cáo, trễ hạn' },
+    'nguoidung': { title: 'Người dùng', subtitle: 'Quản lý tài khoản hệ thống' }
 };
 
 // === MAIN ===
@@ -97,9 +102,34 @@ function renderPage(page, data = null) {
         case 'can-capnhat':
             renderCanCapNhatPage();
             break;
+        // Placeholder pages
+        case 'bo-kpi':
+        case 'capnhat-solieu':
+        case 'kpi-canhan':
+        case 'phancong':
+        case 'nguoidung':
+            renderPlaceholderPage(page);
+            break;
         default:
             renderDashboardPage();
     }
+}
+
+// === PLACEHOLDER PAGE ===
+function renderPlaceholderPage(page) {
+    const container = document.getElementById('mainContainer');
+    const pageInfo = pageTitles[page] || { title: page, subtitle: '' };
+
+    container.innerHTML = `
+        <div class="placeholder-page">
+            <div class="placeholder-card">
+                <i class="ti ti-lock placeholder-icon"></i>
+                <h2>${pageInfo.title}</h2>
+                <p class="placeholder-subtitle">${pageInfo.subtitle}</p>
+                <p class="placeholder-note">Tính năng đang phát triển — sẽ hoàn thiện ở bước 3 (App riêng)</p>
+            </div>
+        </div>
+    `;
 }
 
 // === MOBILE MENU ===
@@ -270,43 +300,37 @@ function renderDashboardPage() {
     const overallProgress = calculateWeightedProgress(allTasks);
 
     container.innerHTML = `
-        <!-- KPI Cards (Fix 1) -->
-        <div class="kpi-cards">
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
             <div class="kpi-card">
-                <div class="kpi-label">% hoàn thành toàn xã</div>
-                <div class="kpi-number" id="overallProgressKpi">${overallProgress.toFixed(1)}%</div>
+                <div class="kpi-label"><i class="ti ti-gauge"></i> % hoàn thành toàn xã</div>
+                <div class="kpi-number" style="color: #15803d;">${overallProgress.toFixed(1)}%</div>
                 <div class="kpi-sub">theo khối lượng công việc</div>
-                <i class="ti ti-gauge kpi-icon"></i>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Tổng nhiệm vụ</div>
-                <div class="kpi-number" id="totalTasks">${stats.total}</div>
+                <div class="kpi-label"><i class="ti ti-clipboard-list"></i> Tổng nhiệm vụ</div>
+                <div class="kpi-number" style="color: #14211b;">${stats.total}</div>
                 <div class="kpi-sub">kỳ 06/2026</div>
-                <i class="ti ti-clipboard-list kpi-icon"></i>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Hoàn thành</div>
-                <div class="kpi-number" id="completedTasks">${stats.completed}</div>
-                <div class="kpi-sub">nhiệm vụ đã xong</div>
-                <i class="ti ti-circle-check kpi-icon"></i>
+                <div class="kpi-label"><i class="ti ti-circle-check"></i> Hoàn thành</div>
+                <div class="kpi-number" style="color: #16a34a;">${stats.completed}</div>
+                <div class="kpi-sub"></div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Đang thực hiện</div>
-                <div class="kpi-number" id="inProgressTasks">${stats.inProgress}</div>
-                <div class="kpi-sub">nhiệm vụ đang làm</div>
-                <i class="ti ti-refresh kpi-icon"></i>
+                <div class="kpi-label"><i class="ti ti-refresh"></i> Đang thực hiện</div>
+                <div class="kpi-number" style="color: #2563eb;">${stats.inProgress}</div>
+                <div class="kpi-sub"></div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Trễ hạn</div>
-                <div class="kpi-number" id="overdueTasks">${stats.overdue}</div>
-                <div class="kpi-sub">cần xử lý gấp</div>
-                <i class="ti ti-clock kpi-icon"></i>
+                <div class="kpi-label"><i class="ti ti-alert-triangle"></i> Trễ hạn</div>
+                <div class="kpi-number" style="color: #dc2626;">${stats.overdue}</div>
+                <div class="kpi-sub">cần xử lý</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-label">Chưa báo cáo</div>
-                <div class="kpi-number" id="noReportTasks">${stats.noReport}</div>
-                <div class="kpi-sub">cần cập nhật</div>
-                <i class="ti ti-alert-triangle kpi-icon"></i>
+                <div class="kpi-label"><i class="ti ti-file-alert"></i> Chưa báo cáo</div>
+                <div class="kpi-number" style="color: #64748b;">${stats.noReport}</div>
+                <div class="kpi-sub">tính là chưa thực hiện</div>
             </div>
         </div>
 
@@ -489,7 +513,7 @@ function renderDepartmentChart(tasks) {
                 data: data,
                 backgroundColor: '#16a34a',
                 borderRadius: 6,
-                barThickness: 20
+                barThickness: 28
             }]
         },
         options: {
