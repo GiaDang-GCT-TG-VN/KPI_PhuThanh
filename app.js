@@ -1,5 +1,6 @@
 // === CONFIG ===
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj824lSoKDpnjPl2ChHFKw832dRjXXiDeF_xMlo4hbjyo6WtoefDiGT4PctBSU6muoXF9cnN6hkRSQ/pub?gid=1567229633&single=true&output=csv';
+const SHEET_EDIT_URL = 'https://docs.google.com/spreadsheets/d/1zJUKJV-QdBSr3xVBkCyMCYMcJLYuDdZS8kzBQK0QfCg/edit';
 const CORS_PROXY = 'https://corsproxy.io/?';
 const AUTO_REFRESH_INTERVAL = 300000; // 5 phút
 
@@ -1273,9 +1274,6 @@ function renderCapNhatSoLieuPage() {
     const stats = calculateStats(allTasks);
     const reported = stats.total - stats.noReport;
 
-    // Google Sheets edit URL
-    const editUrl = 'https://docs.google.com/spreadsheets/d/1zJUKJV-QdBSr3xVBkCyMCYMcJLYuDdZS8kzBQK0QfCg/edit';
-
     const lastUpdateEl = document.getElementById('lastUpdate');
     const lastUpdateTime = lastUpdateEl ? lastUpdateEl.textContent : '--';
 
@@ -1329,7 +1327,7 @@ function renderCapNhatSoLieuPage() {
                     </div>
                 </div>
 
-                <a href="${editUrl}" target="_blank" class="btn-open-sheet">
+                <a href="${SHEET_EDIT_URL}" target="_blank" rel="noopener" class="btn-open-sheet">
                     <i class="ti ti-external-link"></i> Mở Google Sheets
                 </a>
 
@@ -1403,7 +1401,7 @@ function renderCapNhatSoLieuPage() {
                     </div>
                 </div>
 
-                <a href="${editUrl}" target="_blank" class="btn-open-sheet btn-admin">
+                <a href="${SHEET_EDIT_URL}" target="_blank" rel="noopener" class="btn-open-sheet btn-admin">
                     <i class="ti ti-external-link"></i> Mở Google Sheets (Admin)
                 </a>
             </div>
