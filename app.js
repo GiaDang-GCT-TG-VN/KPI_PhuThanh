@@ -135,8 +135,40 @@ function renderDashboard(tasks) {
     renderOverallProgress(tasks);
     renderDepartmentTable(tasks);
     renderCharts(tasks);
+    renderUrgentSection(tasks);
     renderTasksTable(tasks);
     populateDepartmentFilter(tasks);
+}
+
+// === URGENT SECTION (Cần cập nhật ngay) ===
+function renderUrgentSection(tasks) {
+    const urgentTasks = tasks.filter(t => t.trangThai === 'Chưa báo cáo');
+    const section = document.getElementById('urgentSection');
+    const tbody = document.querySelector('#urgentTable tbody');
+    const emptyMsg = document.getElementById('urgentEmpty');
+    const table = document.getElementById('urgentTable');
+
+    if (urgentTasks.length === 0) {
+        table.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        return;
+    }
+
+    table.style.display = 'table';
+    emptyMsg.style.display = 'none';
+    tbody.innerHTML = '';
+
+    urgentTasks.forEach(task => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${task.nhiemVu}</strong></td>
+            <td>${task.canBo}</td>
+            <td>${task.phongBan}</td>
+            <td>${task.khoiLuong}</td>
+            <td>${task.hanHoanThanh}</td>
+        `;
+        tbody.appendChild(row);
+    });
 }
 
 // === OVERVIEW CARDS ===
@@ -272,11 +304,15 @@ function renderDepartmentChart(tasks) {
         departments[dept].weightedProgress += task.khoiLuong * task.phanTram;
     });
 
-    const labels = Object.keys(departments);
-    const data = labels.map(dept => {
+    // Tính % và sắp xếp giảm dần
+    const deptData = Object.keys(departments).map(dept => {
         const d = departments[dept];
-        return d.totalWeight > 0 ? (d.weightedProgress / d.totalWeight) * 100 : 0;
-    });
+        const pct = d.totalWeight > 0 ? (d.weightedProgress / d.totalWeight) * 100 : 0;
+        return { name: dept, pct: pct };
+    }).sort((a, b) => b.pct - a.pct); // Sắp giảm dần
+
+    const labels = deptData.map(d => d.name);
+    const data = deptData.map(d => d.pct);
 
     const ctx = document.getElementById('departmentChart').getContext('2d');
 
@@ -289,28 +325,32 @@ function renderDepartmentChart(tasks) {
             datasets: [{
                 label: '% Hoàn thành',
                 data: data,
-                backgroundColor: data.map(v => v >= 80 ? '#22c55e' : v >= 50 ? '#f59e0b' : '#ef4444'),
-                borderRadius: 8
+                backgroundColor: '#16a34a',
+                borderRadius: 6,
+                barThickness: 20
             }]
         },
         options: {
+            indexAxis: 'y', // Biểu đồ ngang
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false }
             },
             scales: {
-                y: {
+                x: {
                     beginAtZero: true,
                     max: 100,
                     ticks: {
                         callback: value => value + '%'
+                    },
+                    grid: {
+                        color: '#e5e7eb'
                     }
                 },
-                x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
+                y: {
+                    grid: {
+                        display: false
                     }
                 }
             }
@@ -361,6 +401,18 @@ function renderTasksTable(tasks) {
         const statusClass = getStatusClass(task.trangThai);
         const progressPercent = (task.phanTram * 100).toFixed(0);
 
+        // Highlight dòng theo trạng thái
+        if (task.trangThai === 'Chưa báo cáo') {
+            row.style.background = '#fef2f2';
+            row.style.borderLeft = '3px solid #dc2626';
+        } else if (task.trangThai === 'Trễ hạn') {
+            row.style.background = '#fff7ed';
+            row.style.borderLeft = '3px solid #f59e0b';
+        }
+
+        // Cột hạn tô đỏ nếu trễ hạn
+        const hanStyle = task.trangThai === 'Trễ hạn' ? 'color: #dc2626; font-weight: 600;' : '';
+
         row.innerHTML = `
             <td><strong>${task.maViec}</strong></td>
             <td>${task.nhiemVu}</td>
@@ -376,7 +428,7 @@ function renderTasksTable(tasks) {
                 </div>
             </td>
             <td><span class="status-badge ${statusClass}">${task.trangThai}</span></td>
-            <td>${task.hanHoanThanh}</td>
+            <td style="${hanStyle}">${task.hanHoanThanh}</td>
             <td>${task.ngayCapNhat}</td>
             <td>${task.ghiChu}</td>
         `;

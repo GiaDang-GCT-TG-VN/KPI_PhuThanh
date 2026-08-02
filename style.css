@@ -193,6 +193,41 @@ section h2 {
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+/* === URGENT SECTION === */
+.urgent-section {
+    background: #fef2f2;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-left: 4px solid #dc2626;
+}
+
+.urgent-title {
+    color: #dc2626 !important;
+    border-bottom-color: #fca5a5 !important;
+}
+
+.urgent-desc {
+    color: #6b7280;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.urgent-section table thead {
+    background: #fecaca;
+}
+
+.urgent-section table th {
+    background: #dc2626;
+}
+
+.urgent-empty {
+    color: #16a34a;
+    font-weight: 600;
+    text-align: center;
+    padding: 1rem;
+}
+
 .table-responsive {
     overflow-x: auto;
 }
@@ -334,33 +369,86 @@ footer {
     }
 
     header h1 {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
+    }
+
+    header .subtitle {
+        font-size: 0.85rem;
     }
 
     main {
-        padding: 1rem;
+        padding: 0.75rem;
     }
 
+    section {
+        margin-bottom: 1rem;
+    }
+
+    section h2 {
+        font-size: 1rem;
+    }
+
+    /* KPI cards: 2 cột */
     .overview-cards {
         grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
     }
 
     .card {
-        padding: 1rem;
+        padding: 0.75rem;
         flex-direction: column;
         text-align: center;
+        gap: 0.5rem;
+    }
+
+    .card-icon {
+        font-size: 1.5rem;
     }
 
     .card-value {
         font-size: 1.5rem;
     }
 
-    .charts-section {
-        grid-template-columns: 1fr;
+    .card-label {
+        font-size: 0.75rem;
     }
 
+    /* Progress bar nhỏ hơn */
+    .progress-bar-container {
+        height: 2rem;
+    }
+
+    .progress-text {
+        font-size: 0.9rem;
+    }
+
+    /* Charts: xếp dọc */
+    .charts-section {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .chart-container {
+        padding: 1rem;
+    }
+
+    .chart-container canvas {
+        max-height: 250px;
+    }
+
+    /* Sections padding nhỏ hơn */
+    .department-table-section,
+    .tasks-table-section,
+    .filter-section,
+    .progress-section,
+    .urgent-section {
+        padding: 1rem;
+    }
+
+    /* Filters */
     .filters {
         flex-direction: column;
+        gap: 0.5rem;
     }
 
     .filters select,
@@ -368,18 +456,47 @@ footer {
         width: 100%;
     }
 
+    /* Tables */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
     table {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        min-width: 600px;
     }
 
     th, td {
         padding: 0.5rem 0.25rem;
+        white-space: nowrap;
+    }
+
+    .progress-mini {
+        width: 40px;
+    }
+
+    .status-badge {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.7rem;
     }
 }
 
 @media (max-width: 480px) {
+    header h1 {
+        font-size: 1.1rem;
+    }
+
     .overview-cards {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card-value {
+        font-size: 1.25rem;
+    }
+
+    .card-icon {
+        font-size: 1.25rem;
     }
 }
 
