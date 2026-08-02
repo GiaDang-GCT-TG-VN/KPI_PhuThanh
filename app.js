@@ -266,61 +266,47 @@ function parsePercent(value) {
 // ====================================================
 function renderDashboardPage() {
     const container = document.getElementById('mainContainer');
-    container.innerHTML = `
-        <!-- Overview Cards -->
-        <div class="overview-cards">
-            <div class="card">
-                <div class="card-icon total"><i class="ti ti-list-check"></i></div>
-                <div class="card-content">
-                    <div class="card-value" id="totalTasks">0</div>
-                    <div class="card-label">Tổng nhiệm vụ</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-icon completed"><i class="ti ti-circle-check"></i></div>
-                <div class="card-content">
-                    <div class="card-value" id="completedTasks">0</div>
-                    <div class="card-label">Hoàn thành</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-icon in-progress"><i class="ti ti-clock"></i></div>
-                <div class="card-content">
-                    <div class="card-value" id="inProgressTasks">0</div>
-                    <div class="card-label">Đang thực hiện</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-icon overdue"><i class="ti ti-alert-circle"></i></div>
-                <div class="card-content">
-                    <div class="card-value" id="overdueTasks">0</div>
-                    <div class="card-label">Trễ hạn</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-icon pending"><i class="ti ti-hourglass"></i></div>
-                <div class="card-content">
-                    <div class="card-value" id="pendingTasks">0</div>
-                    <div class="card-label">Chờ phê duyệt</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-icon no-report"><i class="ti ti-file-off"></i></div>
-                <div class="card-content">
-                    <div class="card-value" id="noReportTasks">0</div>
-                    <div class="card-label">Chưa báo cáo</div>
-                </div>
-            </div>
-        </div>
+    const stats = calculateStats(allTasks);
+    const overallProgress = calculateWeightedProgress(allTasks);
 
-        <!-- Overall Progress -->
-        <div class="section-card">
-            <h3>Tiến độ toàn xã</h3>
-            <div class="progress-bar-container">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="overallProgress"></div>
-                    <span class="progress-text" id="overallProgressText">0%</span>
-                </div>
+    container.innerHTML = `
+        <!-- KPI Cards (Fix 1) -->
+        <div class="kpi-cards">
+            <div class="kpi-card">
+                <div class="kpi-label">% hoàn thành toàn xã</div>
+                <div class="kpi-number" id="overallProgressKpi">${overallProgress.toFixed(1)}%</div>
+                <div class="kpi-sub">theo khối lượng công việc</div>
+                <i class="ti ti-gauge kpi-icon"></i>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Tổng nhiệm vụ</div>
+                <div class="kpi-number" id="totalTasks">${stats.total}</div>
+                <div class="kpi-sub">kỳ 06/2026</div>
+                <i class="ti ti-clipboard-list kpi-icon"></i>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Hoàn thành</div>
+                <div class="kpi-number" id="completedTasks">${stats.completed}</div>
+                <div class="kpi-sub">nhiệm vụ đã xong</div>
+                <i class="ti ti-circle-check kpi-icon"></i>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Đang thực hiện</div>
+                <div class="kpi-number" id="inProgressTasks">${stats.inProgress}</div>
+                <div class="kpi-sub">nhiệm vụ đang làm</div>
+                <i class="ti ti-refresh kpi-icon"></i>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Trễ hạn</div>
+                <div class="kpi-number" id="overdueTasks">${stats.overdue}</div>
+                <div class="kpi-sub">cần xử lý gấp</div>
+                <i class="ti ti-clock kpi-icon"></i>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Chưa báo cáo</div>
+                <div class="kpi-number" id="noReportTasks">${stats.noReport}</div>
+                <div class="kpi-sub">cần cập nhật</div>
+                <i class="ti ti-alert-triangle kpi-icon"></i>
             </div>
         </div>
 
@@ -334,8 +320,12 @@ function renderDashboardPage() {
             </div>
             <div class="section-card">
                 <h3>Phân bố trạng thái</h3>
-                <div class="chart-container chart-small">
+                <div class="chart-container chart-small" style="position: relative;">
                     <canvas id="statusChart"></canvas>
+                    <div class="donut-center" id="donutCenter">
+                        <div class="donut-center-value">${overallProgress.toFixed(0)}%</div>
+                        <div class="donut-center-label">hoàn thành</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -365,20 +355,8 @@ function renderDashboardPage() {
     `;
 
     // Render data
-    renderOverviewCards(allTasks);
-    renderOverallProgress(allTasks);
     renderDepartmentTable(allTasks);
     renderCharts(allTasks);
-}
-
-function renderOverviewCards(tasks) {
-    const stats = calculateStats(tasks);
-    document.getElementById('totalTasks').textContent = stats.total;
-    document.getElementById('completedTasks').textContent = stats.completed;
-    document.getElementById('inProgressTasks').textContent = stats.inProgress;
-    document.getElementById('overdueTasks').textContent = stats.overdue;
-    document.getElementById('pendingTasks').textContent = stats.pending;
-    document.getElementById('noReportTasks').textContent = stats.noReport;
 }
 
 function calculateStats(tasks) {
@@ -390,20 +368,6 @@ function calculateStats(tasks) {
         pending: tasks.filter(t => t.trangThai === 'Chờ phê duyệt').length,
         noReport: tasks.filter(t => t.trangThai === 'Chưa báo cáo').length
     };
-}
-
-function renderOverallProgress(tasks) {
-    const progress = calculateWeightedProgress(tasks);
-    const progressBar = document.getElementById('overallProgress');
-    const progressText = document.getElementById('overallProgressText');
-
-    if (progressBar && progressText) {
-        progressBar.style.width = progress + '%';
-        progressText.textContent = progress.toFixed(1) + '%';
-        if (progress > 50) {
-            progressText.style.color = 'white';
-        }
-    }
 }
 
 function calculateWeightedProgress(tasks) {
@@ -509,6 +473,13 @@ function renderDepartmentChart(tasks) {
 
     if (departmentChart) departmentChart.destroy();
 
+    // Register datalabels plugin if available
+    const plugins = [];
+    if (typeof ChartDataLabels !== 'undefined') {
+        Chart.register(ChartDataLabels);
+        plugins.push(ChartDataLabels);
+    }
+
     departmentChart = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: {
@@ -525,17 +496,30 @@ function renderDepartmentChart(tasks) {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'right',
+                    formatter: (value) => Math.round(value) + '%',
+                    font: { weight: 'bold', size: 12 },
+                    color: '#14211b'
+                }
+            },
             scales: {
                 x: {
                     beginAtZero: true,
                     max: 100,
                     ticks: { callback: value => value + '%' },
-                    grid: { color: '#e5e7eb' }
+                    grid: { color: '#e5e9e7' }
                 },
-                y: { grid: { display: false } }
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 12 } }
+                }
             }
-        }
+        },
+        plugins: plugins
     });
 }
 
@@ -552,18 +536,24 @@ function renderStatusChart(tasks) {
             labels: ['Hoàn thành', 'Đang thực hiện', 'Trễ hạn', 'Chờ phê duyệt', 'Chưa báo cáo'],
             datasets: [{
                 data: [stats.completed, stats.inProgress, stats.overdue, stats.pending, stats.noReport],
-                backgroundColor: ['#22c55e', '#3b82f6', '#ef4444', '#8b5cf6', '#9ca3af'],
+                backgroundColor: ['#16a34a', '#2563eb', '#dc2626', '#d97706', '#64748b'],
                 borderWidth: 0
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '65%',
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { padding: 15, usePointStyle: true }
-                }
+                    labels: {
+                        padding: 15,
+                        usePointStyle: true,
+                        font: { size: 12 }
+                    }
+                },
+                datalabels: { display: false }
             }
         }
     });
