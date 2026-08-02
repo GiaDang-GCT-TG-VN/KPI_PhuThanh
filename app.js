@@ -1273,20 +1273,24 @@ function renderCapNhatSoLieuPage() {
     const stats = calculateStats(allTasks);
     const reported = stats.total - stats.noReport;
 
-    // Extract Sheet ID from CSV URL
-    const sheetIdMatch = SHEET_CSV_URL.match(/\/d\/e\/([^/]+)/);
-    const publishedId = sheetIdMatch ? sheetIdMatch[1] : '';
-    // For published sheets, we need the original sheet ID
-    // The edit URL format is different - we'll use a general link
+    // Google Sheets edit URL
     const editUrl = 'https://docs.google.com/spreadsheets/d/1zJUKJV-QdBSr3xVBkCyMCYMcJLYuDdZS8kzBQK0QfCg/edit';
 
     const lastUpdateEl = document.getElementById('lastUpdate');
     const lastUpdateTime = lastUpdateEl ? lastUpdateEl.textContent : '--';
 
+    // Tìm mã việc tiếp theo
+    const maxCV = allTasks.reduce((max, t) => {
+        const num = parseInt(t.maViec.replace('CV', '')) || 0;
+        return num > max ? num : max;
+    }, 0);
+    const nextCV = 'CV' + String(maxCV + 1).padStart(3, '0');
+
     container.innerHTML = `
         <div class="capnhat-container">
-            <div class="section-card capnhat-guide">
-                <h3><i class="ti ti-clipboard-text"></i> Cách cập nhật báo cáo</h3>
+            <!-- PHẦN 1: CÁN BỘ -->
+            <div class="section-card capnhat-guide capnhat-canbo">
+                <h3><i class="ti ti-user"></i> Cán bộ — cập nhật báo cáo</h3>
                 <div class="guide-steps">
                     <div class="guide-step">
                         <div class="step-number">1</div>
@@ -1328,18 +1332,83 @@ function renderCapNhatSoLieuPage() {
                 <a href="${editUrl}" target="_blank" class="btn-open-sheet">
                     <i class="ti ti-external-link"></i> Mở Google Sheets
                 </a>
+
+                <div class="capnhat-note-inline">
+                    <h4><i class="ti ti-alert-circle"></i> Lưu ý</h4>
+                    <ul>
+                        <li><strong>CHỈ</strong> sửa: % hoàn thành, Trạng thái, Ngày cập nhật, Ghi chú</li>
+                        <li><strong>KHÔNG</strong> sửa: Mã việc, Nhiệm vụ, Phòng ban, Cán bộ, Khối lượng, Hạn</li>
+                        <li>Dashboard tự cập nhật sau <strong>~5 phút</strong></li>
+                    </ul>
+                </div>
             </div>
 
-            <div class="section-card capnhat-warning">
-                <h3><i class="ti ti-alert-circle"></i> Lưu ý quan trọng</h3>
-                <ul class="warning-list">
-                    <li><i class="ti ti-check"></i> <strong>CHỈ</strong> sửa các cột: % hoàn thành, Trạng thái, Ngày cập nhật, Ghi chú</li>
-                    <li><i class="ti ti-x"></i> <strong>KHÔNG</strong> sửa cột: Mã việc, Nhiệm vụ, Phòng ban, Cán bộ, Khối lượng, Hạn</li>
-                    <li><i class="ti ti-clock"></i> Dashboard tự cập nhật sau <strong>~5 phút</strong> hoặc bấm nút "Cập nhật"</li>
-                    <li><i class="ti ti-alert-triangle"></i> Chưa nhập = tính là <strong>chưa thực hiện (0%)</strong></li>
-                </ul>
+            <!-- PHẦN 2: ADMIN -->
+            <div class="section-card capnhat-admin">
+                <h3><i class="ti ti-shield-check"></i> Admin — quản lý nhiệm vụ</h3>
+                <p class="admin-subtitle">Cán bộ chuyên trách CĐS hoặc Văn phòng UBND</p>
+
+                <div class="admin-sections">
+                    <!-- Giao việc mới -->
+                    <div class="admin-section">
+                        <h4><i class="ti ti-plus"></i> Giao việc mới</h4>
+                        <ol class="admin-steps">
+                            <li>Mở Google Sheets</li>
+                            <li>Thêm 1 dòng mới ở cuối bảng</li>
+                            <li>Điền đầy đủ các cột:
+                                <div class="column-guide">
+                                    <span><strong>A:</strong> Mã việc (${nextCV}, ${String(maxCV + 2).padStart(3, '0') > 999 ? 'CV' + (maxCV + 2) : 'CV' + String(maxCV + 2).padStart(3, '0')}...)</span>
+                                    <span><strong>B:</strong> Tên nhiệm vụ</span>
+                                    <span><strong>C:</strong> Phòng ban</span>
+                                    <span><strong>D:</strong> Cán bộ phụ trách</span>
+                                    <span><strong>E:</strong> Khối lượng (trọng số)</span>
+                                    <span><strong>F:</strong> 0 (% ban đầu)</span>
+                                    <span><strong>G:</strong> Chưa báo cáo</span>
+                                    <span><strong>H:</strong> Hạn hoàn thành</span>
+                                    <span><strong>J:</strong> Người giao</span>
+                                </div>
+                            </li>
+                            <li>Dashboard tự cập nhật sau ~5 phút</li>
+                        </ol>
+                    </div>
+
+                    <!-- Nhắc cán bộ -->
+                    <div class="admin-section">
+                        <h4><i class="ti ti-bell"></i> Nhắc cán bộ chưa báo cáo</h4>
+                        <ul class="admin-tips">
+                            <li>Xem trang <a href="#" class="link-internal" data-page="can-capnhat">"Cần cập nhật"</a> trên dashboard</li>
+                            <li>Hoặc lọc cột G trong Sheet = "Chưa báo cáo"</li>
+                            <li>Gửi Zalo/tin nhắn nhắc cán bộ</li>
+                        </ul>
+                    </div>
+
+                    <!-- Chốt kỳ -->
+                    <div class="admin-section">
+                        <h4><i class="ti ti-archive"></i> Chốt kỳ (cuối tháng/quý)</h4>
+                        <ol class="admin-steps">
+                            <li>Click phải tab "NhiemVu" → <strong>Duplicate</strong></li>
+                            <li>Đổi tên bản copy: <code>NhiemVu_06_2026</code> (lưu trữ)</li>
+                            <li>Trên sheet NhiemVu gốc: cập nhật nhiệm vụ cho kỳ mới</li>
+                        </ol>
+                    </div>
+
+                    <!-- Quản lý quyền -->
+                    <div class="admin-section">
+                        <h4><i class="ti ti-users-group"></i> Quản lý quyền truy cập</h4>
+                        <ul class="admin-tips">
+                            <li><strong>Thêm cán bộ:</strong> Sheet → Share → thêm email (Editor)</li>
+                            <li><strong>Xóa cán bộ nghỉ:</strong> Sheet → Share → xóa email</li>
+                            <li><strong>Bảo mật:</strong> Tắt "Editors can change permissions"</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <a href="${editUrl}" target="_blank" class="btn-open-sheet btn-admin">
+                    <i class="ti ti-external-link"></i> Mở Google Sheets (Admin)
+                </a>
             </div>
 
+            <!-- Trạng thái báo cáo -->
             <div class="section-card capnhat-status">
                 <h3><i class="ti ti-chart-pie"></i> Trạng thái báo cáo hiện tại</h3>
                 <div class="status-grid">
@@ -1351,7 +1420,7 @@ function renderCapNhatSoLieuPage() {
                             <strong>${reported}/${stats.total}</strong> nhiệm vụ đã báo cáo
                         </div>
                     </div>
-                    <div class="status-item highlight-red">
+                    <div class="status-item ${stats.noReport > 0 ? 'highlight-red' : ''}">
                         <i class="ti ti-file-alert"></i>
                         <div class="status-text">
                             <strong>${stats.noReport}</strong> nhiệm vụ chưa báo cáo
@@ -1368,6 +1437,15 @@ function renderCapNhatSoLieuPage() {
             </div>
         </div>
     `;
+
+    // Setup internal links
+    document.querySelectorAll('.link-internal').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = link.dataset.page;
+            navigateTo(page);
+        });
+    });
 }
 
 // ====================================================
