@@ -1,6 +1,6 @@
 // === CONFIG ===
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj824lSoKDpnjPl2ChHFKw832dRjXXiDeF_xMlo4hbjyo6WtoefDiGT4PctBSU6muoXF9cnN6hkRSQ/pub?gid=1567229633&single=true&output=csv';
-const SHEET_EDIT_URL = 'https://docs.google.com/spreadsheets/d/1zJUKJV-QdBSr3xVBkCyMCYMcJLYuDdZS8kzBQK0QfCg/edit';
+const SHEET_EDIT_URL = 'https://docs.google.com/spreadsheets/d/1aMBYqbOkC3xAmgEZUDOvQNBz6yOFU0AeJIsBMdjMxHk/edit?gid=1567229633#gid=1567229633';
 const CORS_PROXY = 'https://corsproxy.io/?';
 const AUTO_REFRESH_INTERVAL = 300000; // 5 phút
 
