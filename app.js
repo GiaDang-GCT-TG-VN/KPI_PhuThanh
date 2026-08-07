@@ -227,10 +227,30 @@ function updateBadge() {
 }
 
 // === PARSE CSV ===
+// Dynamic column mapping - tự động đọc header từ CSV
+const COLUMN_MAP = {
+    'Mã việc': 'maViec',
+    'Nhiệm vụ': 'nhiemVu',
+    'Phòng ban': 'phongBan',
+    'Cán bộ phụ trách': 'canBo',
+    'Khối lượng': 'khoiLuong',
+    'Khối lượng (trọng số)': 'khoiLuong',
+    '% hoàn thành': 'phanTram',
+    'Trạng thái': 'trangThai',
+    'Hạn hoàn thành': 'hanHoanThanh',
+    'Ngày cập nhật': 'ngayCapNhat',
+    'Người giao': 'nguoiGiao',
+    'Đơn vị phối hợp': 'donViPhoiHop',
+    'Ghi chú': 'ghiChu',
+    'Người Báo Cáo': 'nguoiBaoCao',
+    'Ngày Chỉnh Sửa': 'ngayChinhSua'
+};
+
 function parseCSV(csv) {
     const lines = csv.split('\n');
     const tasks = [];
 
+    // Tìm dòng header (chứa "Mã việc")
     let headerIndex = -1;
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].includes('Mã việc')) {
@@ -241,24 +261,52 @@ function parseCSV(csv) {
 
     if (headerIndex === -1) return tasks;
 
+    // Parse header để tạo column index mapping
+    const headerRow = parseCSVRow(lines[headerIndex]);
+    const columnIndex = {};
+
+    headerRow.forEach((header, index) => {
+        // Normalize header: remove extra whitespace, newlines
+        const normalizedHeader = header.replace(/\s+/g, ' ').trim();
+
+        // Tìm trong COLUMN_MAP
+        for (const [key, value] of Object.entries(COLUMN_MAP)) {
+            if (normalizedHeader.includes(key) || key.includes(normalizedHeader)) {
+                columnIndex[value] = index;
+                break;
+            }
+        }
+    });
+
+    console.log('Dynamic column mapping:', columnIndex);
+
+    // Parse data rows
     for (let i = headerIndex + 1; i < lines.length; i++) {
         const row = parseCSVRow(lines[i]);
 
-        if (!row[0] || row[0].startsWith('HƯỚNG DẪN') || !row[0].startsWith('CV')) continue;
+        // Lấy giá trị Mã việc
+        const maViecIdx = columnIndex['maViec'];
+        const maViec = maViecIdx !== undefined ? (row[maViecIdx] || '').trim() : '';
 
+        // Bỏ qua dòng không có Mã việc hoặc không bắt đầu bằng CV
+        if (!maViec || !maViec.startsWith('CV')) continue;
+
+        // Tạo task object từ dynamic mapping
         const task = {
-            maViec: row[0] || '',
-            nhiemVu: row[1] || '',
-            phongBan: row[2] || '',
-            canBo: row[3] || '',
-            khoiLuong: parseFloat(row[4]) || 0,
-            phanTram: parsePercent(row[5]),
-            trangThai: row[6] || '',
-            hanHoanThanh: row[7] || '',
-            ngayCapNhat: row[8] || '',
-            nguoiGiao: row[9] || '',
-            donViPhoiHop: row[10] || '',
-            ghiChu: row[11] || ''
+            maViec: maViec,
+            nhiemVu: getColumnValue(row, columnIndex, 'nhiemVu', ''),
+            phongBan: getColumnValue(row, columnIndex, 'phongBan', ''),
+            canBo: getColumnValue(row, columnIndex, 'canBo', ''),
+            khoiLuong: parseFloat(getColumnValue(row, columnIndex, 'khoiLuong', '0')) || 0,
+            phanTram: parsePercent(getColumnValue(row, columnIndex, 'phanTram', '0')),
+            trangThai: getColumnValue(row, columnIndex, 'trangThai', ''),
+            hanHoanThanh: getColumnValue(row, columnIndex, 'hanHoanThanh', ''),
+            ngayCapNhat: getColumnValue(row, columnIndex, 'ngayCapNhat', ''),
+            nguoiGiao: getColumnValue(row, columnIndex, 'nguoiGiao', ''),
+            donViPhoiHop: getColumnValue(row, columnIndex, 'donViPhoiHop', ''),
+            ghiChu: getColumnValue(row, columnIndex, 'ghiChu', ''),
+            nguoiBaoCao: getColumnValue(row, columnIndex, 'nguoiBaoCao', ''),
+            ngayChinhSua: getColumnValue(row, columnIndex, 'ngayChinhSua', '')
         };
 
         if (task.maViec && task.nhiemVu) {
@@ -267,6 +315,13 @@ function parseCSV(csv) {
     }
 
     return tasks;
+}
+
+// Helper function để lấy giá trị cột an toàn
+function getColumnValue(row, columnIndex, field, defaultValue) {
+    const idx = columnIndex[field];
+    if (idx === undefined || idx >= row.length) return defaultValue;
+    return (row[idx] || '').trim() || defaultValue;
 }
 
 function parseCSVRow(row) {
