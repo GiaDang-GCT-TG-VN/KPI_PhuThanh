@@ -64,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Auto-refresh mỗi 5 phút
     setInterval(() => {
-        console.log('Auto-refresh triggered');
         fetchData();
     }, AUTO_REFRESH_INTERVAL);
 });
@@ -190,7 +189,6 @@ function setupRefreshButton() {
     const btn = document.getElementById('refreshBtn');
     if (btn) {
         btn.addEventListener('click', () => {
-            console.log('Manual refresh triggered');
             fetchData();
         });
     }
@@ -238,8 +236,6 @@ function onLeaderChange() {
     const id = leaderSelect.value;
     currentLeader = LEADERS.find(l => l.id === id) || LEADERS[0];
 
-    console.log('Leader changed:', currentLeader.name, 'Role:', currentLeader.role, 'Scope:', currentLeader.scope);
-
     updateSidebarForRole();
     updateUserInfoDisplay();
     updateBadge();
@@ -253,6 +249,32 @@ function getVisibleTasks() {
     }
     // Chủ tịch + Phó Chủ tịch thấy tất cả
     return allTasks;
+}
+
+function getVisibleStaff() {
+    // Trưởng đơn vị chỉ thấy cán bộ trong đơn vị mình
+    if (currentLeader.role === 'truongdonvi' && currentLeader.scope) {
+        // Lọc cán bộ có nhiệm vụ thuộc đơn vị này
+        const staffInScope = new Set();
+        allTasks.forEach(t => {
+            if (t.phongBan === currentLeader.scope && t.canBo) {
+                staffInScope.add(t.canBo);
+            }
+        });
+        // Trả về cán bộ thuộc scope (kể cả chưa có nhiệm vụ nếu họ thuộc phòng ban đó)
+        return allStaff.filter(s => staffInScope.has(s));
+    }
+    // Chủ tịch + Phó Chủ tịch thấy tất cả cán bộ
+    return allStaff;
+}
+
+function getVisibleDepartments() {
+    // Trưởng đơn vị chỉ thấy đơn vị mình
+    if (currentLeader.role === 'truongdonvi' && currentLeader.scope) {
+        return [currentLeader.scope];
+    }
+    // Chủ tịch + Phó Chủ tịch thấy tất cả phòng ban
+    return allDepartments;
 }
 
 function updateSidebarForRole() {
@@ -328,10 +350,7 @@ function renderScopeBanner() {
 
 // === FETCH DATA ===
 async function fetchData() {
-    if (isLoading) {
-        console.log('Already loading, skipping...');
-        return;
-    }
+    if (isLoading) return;
 
     isLoading = true;
     showLoading();
@@ -348,19 +367,15 @@ async function fetchData() {
             });
             if (!response.ok) throw new Error('Direct fetch failed');
             csvText = await response.text();
-            console.log('Direct fetch successful');
         } catch (e) {
-            console.log('Direct fetch failed, trying CORS proxy...');
             const response = await fetch(CORS_PROXY + encodeURIComponent(urlWithCacheBust), {
                 cache: 'no-store'
             });
             if (!response.ok) throw new Error('Không thể tải dữ liệu');
             csvText = await response.text();
-            console.log('CORS proxy fetch successful');
         }
 
         allTasks = parseCSV(csvText);
-        console.log(`Loaded ${allTasks.length} tasks`);
 
         // Populate leader dropdown
         populateLeaderDropdown();
@@ -445,8 +460,6 @@ function parseCSV(csv) {
         }
     });
 
-    console.log('Dynamic column mapping:', columnIndex);
-
     // Parse ALL data rows (bao gồm cả dòng không có Mã việc)
     for (let i = headerIndex + 1; i < lines.length; i++) {
         const row = parseCSVRow(lines[i]);
@@ -493,9 +506,6 @@ function parseCSV(csv) {
     // Cập nhật global state với TẤT CẢ cán bộ và phòng ban
     allStaff = [...staffSet].sort();
     allDepartments = [...deptSet].sort();
-
-    console.log('All staff collected:', allStaff.length, allStaff);
-    console.log('All departments collected:', allDepartments.length, allDepartments);
 
     return tasks;
 }
@@ -903,9 +913,10 @@ function getTaskClass(task) {
 function renderTheodoiPage() {
     const container = document.getElementById('mainContainer');
     const visibleTasks = getVisibleTasks();
-    // Sử dụng allDepartments (TẤT CẢ phòng ban từ Sheet)
-    const departments = allDepartments.length > 0
-        ? allDepartments
+    // Sử dụng getVisibleDepartments() để lọc theo phạm vi vai trò
+    const visibleDepts = getVisibleDepartments();
+    const departments = visibleDepts.length > 0
+        ? visibleDepts
         : [...new Set(visibleTasks.map(t => t.phongBan).filter(d => d))];
     const statuses = ['Hoàn thành', 'Đang thực hiện', 'Trễ hạn', 'Chờ phê duyệt', 'Chưa báo cáo'];
 
@@ -1135,9 +1146,33 @@ function renderStaffProfile(staffName) {
     currentStaffProfile = staffName;
     const container = document.getElementById('mainContainer');
 
-    const staffTasks = allTasks.filter(t => t.canBo === staffName);
+    // Kiểm tra quyền xem cán bộ này
+    const visibleStaff = getVisibleStaff();
+    if (!visibleStaff.includes(staffName)) {
+        container.innerHTML = `
+            <button class="back-btn" id="backToStaffList">
+                <i class="ti ti-arrow-left"></i> Quay lại danh sách
+            </button>
+            <div class="error-page">
+                <i class="ti ti-lock"></i>
+                <p>Không có quyền xem cán bộ này</p>
+                <p class="error-sub">Cán bộ "${staffName}" không thuộc phạm vi quản lý của bạn.</p>
+            </div>
+        `;
+        document.getElementById('backToStaffList')?.addEventListener('click', () => {
+            currentStaffProfile = null;
+            document.getElementById('pageTitle').textContent = 'Nhân sự';
+            document.getElementById('pageSubtitle').textContent = 'Danh sách cán bộ và nhiệm vụ';
+            renderNhanSuPage();
+        });
+        return;
+    }
+
+    // Lọc nhiệm vụ theo phạm vi vai trò hiện tại
+    const visibleTasks = getVisibleTasks();
+    const staffTasks = visibleTasks.filter(t => t.canBo === staffName);
     if (staffTasks.length === 0) {
-        container.innerHTML = `<p>Không tìm thấy cán bộ: ${staffName}</p>`;
+        container.innerHTML = `<p>Không tìm thấy nhiệm vụ của cán bộ: ${staffName}</p>`;
         return;
     }
 
@@ -1531,7 +1566,7 @@ function renderCapNhatSoLieuPage() {
     const lastUpdateEl = document.getElementById('lastUpdate');
     const lastUpdateTime = lastUpdateEl ? lastUpdateEl.textContent : '--';
 
-    // Tìm mã việc tiếp theo
+    // Tìm mã việc tiếp theo (CỐ Ý dùng allTasks vì mã việc phải unique toàn hệ thống)
     const maxCV = allTasks.reduce((max, t) => {
         const num = parseInt(t.maViec.replace('CV', '')) || 0;
         return num > max ? num : max;
@@ -1709,10 +1744,11 @@ let selectedStaffKPI = null;
 function renderKPICaNhanPage(data = null) {
     const container = document.getElementById('mainContainer');
 
-    // Sử dụng allStaff (TẤT CẢ cán bộ từ Sheet, kể cả không có nhiệm vụ)
-    const staffList = allStaff.length > 0
-        ? allStaff
-        : [...new Set(allTasks.map(t => t.canBo).filter(Boolean))].sort();
+    // Sử dụng getVisibleStaff() để lọc theo phạm vi vai trò
+    const visibleStaff = getVisibleStaff();
+    const staffList = visibleStaff.length > 0
+        ? visibleStaff
+        : [...new Set(getVisibleTasks().map(t => t.canBo).filter(Boolean))].sort();
 
     // Nếu có data.staff từ navigation, set selected
     if (data && data.staff) {
