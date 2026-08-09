@@ -421,15 +421,16 @@ const COLUMN_MAP = {
 };
 
 function parseCSV(csv) {
-    const lines = csv.split('\n');
+    // Parse CSV với multiline support (xử lý fields trong quotes có newline)
+    const rows = parseCSVWithMultiline(csv);
     const tasks = [];
-    const staffSet = new Set();  // Thu thập TẤT CẢ cán bộ
-    const deptSet = new Set();   // Thu thập TẤT CẢ phòng ban
+    const staffSet = new Set();
+    const deptSet = new Set();
 
     // Tìm dòng header (chứa "Mã việc")
     let headerIndex = -1;
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes('Mã việc')) {
+    for (let i = 0; i < rows.length; i++) {
+        if (rows[i].some(cell => cell.includes('Mã việc'))) {
             headerIndex = i;
             break;
         }
@@ -438,7 +439,7 @@ function parseCSV(csv) {
     if (headerIndex === -1) return tasks;
 
     // Parse header để tạo column index mapping
-    const headerRow = parseCSVRow(lines[headerIndex]);
+    const headerRow = rows[headerIndex];
     const columnIndex = {};
 
     // DEBUG: In ra header thực tế
@@ -464,8 +465,8 @@ function parseCSV(csv) {
             .filter(c => columnIndex[c] === undefined));
 
     // Parse ALL data rows (bao gồm cả dòng không có Mã việc)
-    for (let i = headerIndex + 1; i < lines.length; i++) {
-        const row = parseCSVRow(lines[i]);
+    for (let i = headerIndex + 1; i < rows.length; i++) {
+        const row = rows[i];
 
         // Lấy giá trị các cột quan trọng
         const maViec = getColumnValue(row, columnIndex, 'maViec', '').trim();
@@ -525,24 +526,60 @@ function getColumnValue(row, columnIndex, field, defaultValue) {
     return (row[idx] || '').trim() || defaultValue;
 }
 
-function parseCSVRow(row) {
-    const result = [];
-    let current = '';
+// Parse CSV với multiline support (xử lý fields trong quotes có newline)
+function parseCSVWithMultiline(csv) {
+    const rows = [];
+    let currentRow = [];
+    let currentCell = '';
     let inQuotes = false;
 
-    for (let i = 0; i < row.length; i++) {
-        const char = row[i];
+    for (let i = 0; i < csv.length; i++) {
+        const char = csv[i];
+        const nextChar = csv[i + 1];
+
         if (char === '"') {
-            inQuotes = !inQuotes;
+            if (inQuotes && nextChar === '"') {
+                // Escaped quote ""
+                currentCell += '"';
+                i++;
+            } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+            }
         } else if (char === ',' && !inQuotes) {
-            result.push(current.trim());
-            current = '';
+            currentRow.push(currentCell.trim());
+            currentCell = '';
+        } else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+            // End of row (but not if inside quotes)
+            currentRow.push(currentCell.trim());
+            if (currentRow.length > 0 && currentRow.some(c => c)) {
+                rows.push(currentRow);
+            }
+            currentRow = [];
+            currentCell = '';
+            if (char === '\r') i++; // Skip \n after \r
+        } else if (char === '\r' && !inQuotes) {
+            // Handle \r alone
+            currentRow.push(currentCell.trim());
+            if (currentRow.length > 0 && currentRow.some(c => c)) {
+                rows.push(currentRow);
+            }
+            currentRow = [];
+            currentCell = '';
         } else {
-            current += char;
+            currentCell += char;
         }
     }
-    result.push(current.trim());
-    return result;
+
+    // Don't forget last cell and row
+    if (currentCell || currentRow.length > 0) {
+        currentRow.push(currentCell.trim());
+        if (currentRow.some(c => c)) {
+            rows.push(currentRow);
+        }
+    }
+
+    return rows;
 }
 
 function parsePercent(value) {
