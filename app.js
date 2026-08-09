@@ -16,15 +16,28 @@ let currentFilters = { department: '', status: '' };
 let currentStaffProfile = null;
 
 // === ROLE-BASED VIEW (Mô phỏng) ===
-let currentRole = 'chutich';  // chutich, phochutich, truongdonvi, canbo
-let currentScope = null;  // Tên đơn vị hoặc tên cán bộ (tùy role)
+// Danh sách lãnh đạo - scope phải khớp CHÍNH XÁC với cột "Phòng ban" trong Google Sheets
+const LEADERS = [
+    // Lãnh đạo xã (toàn xã)
+    { id: 'ct',     name: 'Nguyễn Nam',           title: 'Chủ tịch UBND xã',              role: 'chutich',     scope: null },
+    { id: 'pct1',   name: 'Dương Hoàng Lai',      title: 'Phó Chủ tịch',                  role: 'phochutich',  scope: null },
+    { id: 'pct2',   name: 'Phạm Thị Thanh Hoa',   title: 'Phó Chủ tịch',                  role: 'phochutich',  scope: null },
+    // Trưởng đơn vị (chỉ đơn vị mình)
+    { id: 'cvp',    name: 'Trần Văn Bình',        title: 'Chánh Văn phòng HĐND-UBND',     role: 'truongdonvi', scope: 'Văn phòng HĐND&UBND' },
+    { id: 'tpkt',   name: 'Nguyễn Hữu Thắng',     title: 'Trưởng phòng Kinh tế',          role: 'truongdonvi', scope: 'Phòng Kinh tế' },
+    { id: 'tpvhxh', name: 'Lê Thị Hoa',           title: 'Trưởng phòng Văn hóa - Xã hội', role: 'truongdonvi', scope: 'Phòng Văn hoá - Xã hội' },
+    { id: 'gdhcc',  name: 'Mai Thị Minh Ánh',     title: 'Giám đốc Trung tâm HCC',        role: 'truongdonvi', scope: 'Trung tâm phục vụ hành chính công' },
+    { id: 'gdtt',   name: 'Phạm Văn Tú',          title: 'Trưởng ấp Thọ Khương',          role: 'truongdonvi', scope: 'Ấp Thọ Khương' },
+    { id: 'tram',   name: 'Vũ Đình Long',         title: 'Trưởng Trạm y tế',              role: 'truongdonvi', scope: 'Trạm y tế' },
+];
 
-// Menu access by role
+let currentLeader = LEADERS[0]; // Mặc định Chủ tịch
+
+// Menu access by role (chỉ 3 role, bỏ canbo)
 const MENU_ACCESS = {
     chutich:     ['dashboard', 'bo-kpi', 'capnhat-solieu', 'kpi-canhan', 'kpi-phongban', 'phancong', 'theodoi', 'nhansu', 'can-capnhat', 'nguoidung'],
     phochutich:  ['dashboard', 'bo-kpi', 'capnhat-solieu', 'kpi-canhan', 'kpi-phongban', 'phancong', 'theodoi', 'nhansu', 'can-capnhat'],
-    truongdonvi: ['dashboard', 'bo-kpi', 'capnhat-solieu', 'kpi-canhan', 'phancong', 'theodoi', 'nhansu', 'can-capnhat'],
-    canbo:       ['dashboard', 'capnhat-solieu', 'kpi-canhan', 'theodoi']
+    truongdonvi: ['dashboard', 'bo-kpi', 'capnhat-solieu', 'kpi-canhan', 'phancong', 'theodoi', 'nhansu', 'can-capnhat']
 };
 
 // === PAGE TITLES ===
@@ -185,61 +198,47 @@ function setupRefreshButton() {
 
 // === ROLE SWITCHER (Chế độ xem mô phỏng) ===
 function setupRoleSwitcher() {
-    const roleSelect = document.getElementById('roleSelect');
-    const deptSelect = document.getElementById('deptSelect');
-    const staffSelect = document.getElementById('staffSelect');
-
-    if (roleSelect) {
-        roleSelect.addEventListener('change', onRoleChange);
-    }
-    if (deptSelect) {
-        deptSelect.addEventListener('change', onScopeChange);
-    }
-    if (staffSelect) {
-        staffSelect.addEventListener('change', onScopeChange);
+    const leaderSelect = document.getElementById('leaderSelect');
+    if (leaderSelect) {
+        leaderSelect.addEventListener('change', onLeaderChange);
     }
 }
 
-function populateRoleDropdowns() {
-    const deptSelect = document.getElementById('deptSelect');
-    const staffSelect = document.getElementById('staffSelect');
+function populateLeaderDropdown() {
+    const leaderSelect = document.getElementById('leaderSelect');
+    if (!leaderSelect) return;
 
-    if (deptSelect && allDepartments.length > 0) {
-        deptSelect.innerHTML = allDepartments.map(d =>
-            `<option value="${d}">${d}</option>`
-        ).join('');
-    }
+    // Chia LEADERS thành 2 nhóm
+    const lanhdao = LEADERS.filter(l => l.role === 'chutich' || l.role === 'phochutich');
+    const truongdonvi = LEADERS.filter(l => l.role === 'truongdonvi');
 
-    if (staffSelect && allStaff.length > 0) {
-        staffSelect.innerHTML = allStaff.map(s =>
-            `<option value="${s}">${s}</option>`
-        ).join('');
-    }
+    let html = '';
+
+    // Optgroup: Lãnh đạo xã
+    html += '<optgroup label="Lãnh đạo xã">';
+    lanhdao.forEach(l => {
+        const selected = l.id === currentLeader.id ? 'selected' : '';
+        html += `<option value="${l.id}" ${selected}>${l.name} — ${l.title}</option>`;
+    });
+    html += '</optgroup>';
+
+    // Optgroup: Trưởng đơn vị
+    html += '<optgroup label="Trưởng đơn vị">';
+    truongdonvi.forEach(l => {
+        const selected = l.id === currentLeader.id ? 'selected' : '';
+        html += `<option value="${l.id}" ${selected}>${l.name} — ${l.title}</option>`;
+    });
+    html += '</optgroup>';
+
+    leaderSelect.innerHTML = html;
 }
 
-function onRoleChange() {
-    const roleSelect = document.getElementById('roleSelect');
-    const deptSelect = document.getElementById('deptSelect');
-    const staffSelect = document.getElementById('staffSelect');
+function onLeaderChange() {
+    const leaderSelect = document.getElementById('leaderSelect');
+    const id = leaderSelect.value;
+    currentLeader = LEADERS.find(l => l.id === id) || LEADERS[0];
 
-    currentRole = roleSelect.value;
-
-    // Hiện/ẩn dropdown phụ
-    deptSelect.style.display = (currentRole === 'truongdonvi') ? 'inline-block' : 'none';
-    staffSelect.style.display = (currentRole === 'canbo') ? 'inline-block' : 'none';
-
-    // Set scope mặc định
-    if (currentRole === 'truongdonvi') {
-        currentScope = deptSelect.value || allDepartments[0] || null;
-        if (currentScope) deptSelect.value = currentScope;
-    } else if (currentRole === 'canbo') {
-        currentScope = staffSelect.value || allStaff[0] || null;
-        if (currentScope) staffSelect.value = currentScope;
-    } else {
-        currentScope = null;
-    }
-
-    console.log('Role changed:', currentRole, 'Scope:', currentScope);
+    console.log('Leader changed:', currentLeader.name, 'Role:', currentLeader.role, 'Scope:', currentLeader.scope);
 
     updateSidebarForRole();
     updateUserInfoDisplay();
@@ -247,36 +246,17 @@ function onRoleChange() {
     renderPage(currentPage);
 }
 
-function onScopeChange() {
-    const deptSelect = document.getElementById('deptSelect');
-    const staffSelect = document.getElementById('staffSelect');
-
-    currentScope = (currentRole === 'truongdonvi')
-        ? deptSelect.value
-        : staffSelect.value;
-
-    console.log('Scope changed:', currentScope);
-
-    updateUserInfoDisplay();
-    updateBadge();
-    renderPage(currentPage);
-}
-
 function getVisibleTasks() {
-    if (currentRole === 'chutich' || currentRole === 'phochutich') {
-        return allTasks;  // Thấy tất cả
+    // Trưởng đơn vị chỉ thấy đơn vị mình
+    if (currentLeader.role === 'truongdonvi' && currentLeader.scope) {
+        return allTasks.filter(t => t.phongBan === currentLeader.scope);
     }
-    if (currentRole === 'truongdonvi' && currentScope) {
-        return allTasks.filter(t => t.phongBan === currentScope);
-    }
-    if (currentRole === 'canbo' && currentScope) {
-        return allTasks.filter(t => t.canBo === currentScope);
-    }
+    // Chủ tịch + Phó Chủ tịch thấy tất cả
     return allTasks;
 }
 
 function updateSidebarForRole() {
-    const allowed = MENU_ACCESS[currentRole] || [];
+    const allowed = MENU_ACCESS[currentLeader.role] || [];
 
     // Ẩn/hiện các menu item
     document.querySelectorAll('.nav-item[data-page]').forEach(item => {
@@ -311,37 +291,37 @@ function updateSidebarForRole() {
 }
 
 function updateUserInfoDisplay() {
-    const roleNames = {
-        chutich: { name: 'Chủ tịch UBND', role: 'Toàn xã · Giám sát' },
-        phochutich: { name: 'Phó Chủ tịch', role: 'Toàn xã · Giám sát' },
-        truongdonvi: { name: 'Trưởng đơn vị', role: currentScope || '—' },
-        canbo: { name: currentScope || 'Cán bộ', role: 'Chỉ việc của tôi' }
-    };
-
-    const info = roleNames[currentRole];
-    const initial = info.name.trim().split(' ').pop()[0] || '?';
+    const initial = currentLeader.name.trim().split(' ').pop()[0] || '?';
 
     const avatarEl = document.querySelector('.user-avatar');
     const nameEl = document.querySelector('.user-name');
     const roleEl = document.querySelector('.user-role');
 
     if (avatarEl) avatarEl.textContent = initial.toUpperCase();
-    if (nameEl) nameEl.textContent = info.name;
-    if (roleEl) roleEl.textContent = info.role;
+    if (nameEl) nameEl.textContent = currentLeader.name;
+
+    // Role text: nếu trưởng đơn vị thì hiện scope
+    if (roleEl) {
+        roleEl.textContent = currentLeader.role === 'truongdonvi'
+            ? `${currentLeader.title}`
+            : currentLeader.title;
+    }
 }
 
 function renderScopeBanner() {
-    if (currentRole === 'chutich') return '';
+    // Chủ tịch không cần banner
+    if (currentLeader.role === 'chutich') return '';
 
-    const scopeText = {
-        phochutich: 'Bạn đang xem với vai Phó Chủ tịch — toàn xã',
-        truongdonvi: `Bạn đang xem với vai Trưởng đơn vị — chỉ dữ liệu của <strong>${currentScope || '—'}</strong>`,
-        canbo: `Bạn đang xem với vai Cán bộ — chỉ nhiệm vụ của <strong>${currentScope || '—'}</strong>`
-    }[currentRole];
+    let text = '';
+    if (currentLeader.role === 'phochutich') {
+        text = `${currentLeader.name} — ${currentLeader.title} · xem toàn xã`;
+    } else {
+        text = `${currentLeader.name} — ${currentLeader.title} · chỉ xem dữ liệu <strong>${currentLeader.scope}</strong>`;
+    }
 
     return `<div class="scope-banner">
         <i class="ti ti-info-circle"></i>
-        <span>${scopeText}</span>
+        <span>${text}</span>
         <span class="banner-demo">chế độ mô phỏng</span>
     </div>`;
 }
@@ -382,8 +362,8 @@ async function fetchData() {
         allTasks = parseCSV(csvText);
         console.log(`Loaded ${allTasks.length} tasks`);
 
-        // Populate role dropdowns với dữ liệu mới
-        populateRoleDropdowns();
+        // Populate leader dropdown
+        populateLeaderDropdown();
         updateSidebarForRole();
         updateUserInfoDisplay();
 

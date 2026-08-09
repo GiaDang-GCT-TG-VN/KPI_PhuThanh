@@ -96,19 +96,10 @@
         <!-- Role Switcher - Chế độ xem mô phỏng -->
         <div class="role-switcher" id="roleSwitcher">
             <span class="role-label">
-                <i class="ti ti-eye"></i> Chế độ xem <span class="badge-demo">mô phỏng</span>
+                <i class="ti ti-eye"></i> Xem với vai <span class="badge-demo">mô phỏng</span>
             </span>
-            <select id="roleSelect">
-                <option value="chutich">Chủ tịch — toàn xã</option>
-                <option value="phochutich">Phó Chủ tịch — toàn xã</option>
-                <option value="truongdonvi">Trưởng đơn vị</option>
-                <option value="canbo">Cán bộ</option>
-            </select>
-            <select id="deptSelect" style="display:none">
-                <!-- Populated by JS -->
-            </select>
-            <select id="staffSelect" style="display:none">
-                <!-- Populated by JS -->
+            <select id="leaderSelect">
+                <!-- Populated by JS from LEADERS array -->
             </select>
         </div>
 
