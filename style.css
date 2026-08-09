@@ -2089,3 +2089,118 @@ code {
         font-size: 1.1rem;
     }
 }
+
+/* === ROLE SWITCHER (Chế độ xem mô phỏng) === */
+.role-switcher {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 1.5rem;
+    background: linear-gradient(135deg, #166534 0%, #14532d 100%);
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.role-label {
+    color: #dcfce7;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+}
+
+.badge-demo {
+    background: #fbbf24;
+    color: #78350f;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.role-switcher select {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    background: #fff;
+    color: #14211b;
+    cursor: pointer;
+    min-width: 140px;
+}
+
+.role-switcher select:focus {
+    outline: none;
+    border-color: #4ade80;
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+}
+
+/* === SCOPE BANNER === */
+.scope-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    background: #fef3c7;
+    border-left: 3px solid #d97706;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: #78350f;
+}
+
+.scope-banner i {
+    font-size: 16px;
+    color: #d97706;
+}
+
+.banner-demo {
+    margin-left: auto;
+    font-size: 11px;
+    background: #d97706;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+/* === FOOTER DEMO NOTE === */
+.footer-demo-note {
+    font-size: 11px;
+    color: #6b7a73;
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+/* === RESPONSIVE ROLE SWITCHER === */
+@media (max-width: 768px) {
+    .role-switcher {
+        padding: 10px 1rem;
+    }
+
+    .role-switcher select {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    .role-label {
+        width: 100%;
+        margin-bottom: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .scope-banner {
+        flex-wrap: wrap;
+        font-size: 12px;
+    }
+
+    .banner-demo {
+        margin-left: 0;
+        margin-top: 6px;
+    }
+}

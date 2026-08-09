@@ -93,6 +93,25 @@
             </div>
         </header>
 
+        <!-- Role Switcher - Chế độ xem mô phỏng -->
+        <div class="role-switcher" id="roleSwitcher">
+            <span class="role-label">
+                <i class="ti ti-eye"></i> Chế độ xem <span class="badge-demo">mô phỏng</span>
+            </span>
+            <select id="roleSelect">
+                <option value="chutich">Chủ tịch — toàn xã</option>
+                <option value="phochutich">Phó Chủ tịch — toàn xã</option>
+                <option value="truongdonvi">Trưởng đơn vị</option>
+                <option value="canbo">Cán bộ</option>
+            </select>
+            <select id="deptSelect" style="display:none">
+                <!-- Populated by JS -->
+            </select>
+            <select id="staffSelect" style="display:none">
+                <!-- Populated by JS -->
+            </select>
+        </div>
+
         <main id="mainContainer">
             <!-- Page content rendered here by JS -->
             <div class="loading-page">
@@ -102,6 +121,10 @@
 
         <footer>
             <p>Dashboard KPI UBND xã Phú Thành · Dữ liệu từ Google Sheets</p>
+            <p class="footer-demo-note">
+                Chế độ xem chỉ để minh họa phân quyền. Phân quyền thật (đăng nhập + bảo mật server-side)
+                sẽ có ở phiên bản App riêng — Bước 3.
+            </p>
         </footer>
     </div>
 

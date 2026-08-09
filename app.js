@@ -15,6 +15,18 @@ let currentPage = 'dashboard';
 let currentFilters = { department: '', status: '' };
 let currentStaffProfile = null;
 
+// === ROLE-BASED VIEW (Mô phỏng) ===
+let currentRole = 'chutich';  // chutich, phochutich, truongdonvi, canbo
+let currentScope = null;  // Tên đơn vị hoặc tên cán bộ (tùy role)
+
+// Menu access by role
+const MENU_ACCESS = {
+    chutich:     ['dashboard', 'bo-kpi', 'capnhat-solieu', 'kpi-canhan', 'kpi-phongban', 'phancong', 'theodoi', 'nhansu', 'can-capnhat', 'nguoidung'],
+    phochutich:  ['dashboard', 'bo-kpi', 'capnhat-solieu', 'kpi-canhan', 'kpi-phongban', 'phancong', 'theodoi', 'nhansu', 'can-capnhat'],
+    truongdonvi: ['dashboard', 'bo-kpi', 'capnhat-solieu', 'kpi-canhan', 'phancong', 'theodoi', 'nhansu', 'can-capnhat'],
+    canbo:       ['dashboard', 'capnhat-solieu', 'kpi-canhan', 'theodoi']
+};
+
 // === PAGE TITLES ===
 const pageTitles = {
     'dashboard': { title: 'Dashboard', subtitle: 'Tổng quan KPI toàn xã · Kỳ 06/2026' },
@@ -34,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupMobileMenu();
     setupRefreshButton();
+    setupRoleSwitcher();
     fetchData();
 
     // Auto-refresh mỗi 5 phút
@@ -170,6 +183,169 @@ function setupRefreshButton() {
     }
 }
 
+// === ROLE SWITCHER (Chế độ xem mô phỏng) ===
+function setupRoleSwitcher() {
+    const roleSelect = document.getElementById('roleSelect');
+    const deptSelect = document.getElementById('deptSelect');
+    const staffSelect = document.getElementById('staffSelect');
+
+    if (roleSelect) {
+        roleSelect.addEventListener('change', onRoleChange);
+    }
+    if (deptSelect) {
+        deptSelect.addEventListener('change', onScopeChange);
+    }
+    if (staffSelect) {
+        staffSelect.addEventListener('change', onScopeChange);
+    }
+}
+
+function populateRoleDropdowns() {
+    const deptSelect = document.getElementById('deptSelect');
+    const staffSelect = document.getElementById('staffSelect');
+
+    if (deptSelect && allDepartments.length > 0) {
+        deptSelect.innerHTML = allDepartments.map(d =>
+            `<option value="${d}">${d}</option>`
+        ).join('');
+    }
+
+    if (staffSelect && allStaff.length > 0) {
+        staffSelect.innerHTML = allStaff.map(s =>
+            `<option value="${s}">${s}</option>`
+        ).join('');
+    }
+}
+
+function onRoleChange() {
+    const roleSelect = document.getElementById('roleSelect');
+    const deptSelect = document.getElementById('deptSelect');
+    const staffSelect = document.getElementById('staffSelect');
+
+    currentRole = roleSelect.value;
+
+    // Hiện/ẩn dropdown phụ
+    deptSelect.style.display = (currentRole === 'truongdonvi') ? 'inline-block' : 'none';
+    staffSelect.style.display = (currentRole === 'canbo') ? 'inline-block' : 'none';
+
+    // Set scope mặc định
+    if (currentRole === 'truongdonvi') {
+        currentScope = deptSelect.value || allDepartments[0] || null;
+        if (currentScope) deptSelect.value = currentScope;
+    } else if (currentRole === 'canbo') {
+        currentScope = staffSelect.value || allStaff[0] || null;
+        if (currentScope) staffSelect.value = currentScope;
+    } else {
+        currentScope = null;
+    }
+
+    console.log('Role changed:', currentRole, 'Scope:', currentScope);
+
+    updateSidebarForRole();
+    updateUserInfoDisplay();
+    updateBadge();
+    renderPage(currentPage);
+}
+
+function onScopeChange() {
+    const deptSelect = document.getElementById('deptSelect');
+    const staffSelect = document.getElementById('staffSelect');
+
+    currentScope = (currentRole === 'truongdonvi')
+        ? deptSelect.value
+        : staffSelect.value;
+
+    console.log('Scope changed:', currentScope);
+
+    updateUserInfoDisplay();
+    updateBadge();
+    renderPage(currentPage);
+}
+
+function getVisibleTasks() {
+    if (currentRole === 'chutich' || currentRole === 'phochutich') {
+        return allTasks;  // Thấy tất cả
+    }
+    if (currentRole === 'truongdonvi' && currentScope) {
+        return allTasks.filter(t => t.phongBan === currentScope);
+    }
+    if (currentRole === 'canbo' && currentScope) {
+        return allTasks.filter(t => t.canBo === currentScope);
+    }
+    return allTasks;
+}
+
+function updateSidebarForRole() {
+    const allowed = MENU_ACCESS[currentRole] || [];
+
+    // Ẩn/hiện các menu item
+    document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+        const page = item.dataset.page;
+        item.style.display = allowed.includes(page) ? 'flex' : 'none';
+    });
+
+    // Nếu trang hiện tại không được phép → chuyển về dashboard
+    if (!allowed.includes(currentPage)) {
+        currentPage = 'dashboard';
+        // Update active state
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.page === 'dashboard') {
+                item.classList.add('active');
+            }
+        });
+    }
+
+    // Ẩn nav-group nếu tất cả item bên dưới bị ẩn
+    document.querySelectorAll('.nav-group').forEach(group => {
+        let next = group.nextElementSibling;
+        let hasVisible = false;
+        while (next && !next.classList.contains('nav-group')) {
+            if (next.classList.contains('nav-item') && next.style.display !== 'none') {
+                hasVisible = true;
+            }
+            next = next.nextElementSibling;
+        }
+        group.style.display = hasVisible ? 'block' : 'none';
+    });
+}
+
+function updateUserInfoDisplay() {
+    const roleNames = {
+        chutich: { name: 'Chủ tịch UBND', role: 'Toàn xã · Giám sát' },
+        phochutich: { name: 'Phó Chủ tịch', role: 'Toàn xã · Giám sát' },
+        truongdonvi: { name: 'Trưởng đơn vị', role: currentScope || '—' },
+        canbo: { name: currentScope || 'Cán bộ', role: 'Chỉ việc của tôi' }
+    };
+
+    const info = roleNames[currentRole];
+    const initial = info.name.trim().split(' ').pop()[0] || '?';
+
+    const avatarEl = document.querySelector('.user-avatar');
+    const nameEl = document.querySelector('.user-name');
+    const roleEl = document.querySelector('.user-role');
+
+    if (avatarEl) avatarEl.textContent = initial.toUpperCase();
+    if (nameEl) nameEl.textContent = info.name;
+    if (roleEl) roleEl.textContent = info.role;
+}
+
+function renderScopeBanner() {
+    if (currentRole === 'chutich') return '';
+
+    const scopeText = {
+        phochutich: 'Bạn đang xem với vai Phó Chủ tịch — toàn xã',
+        truongdonvi: `Bạn đang xem với vai Trưởng đơn vị — chỉ dữ liệu của <strong>${currentScope || '—'}</strong>`,
+        canbo: `Bạn đang xem với vai Cán bộ — chỉ nhiệm vụ của <strong>${currentScope || '—'}</strong>`
+    }[currentRole];
+
+    return `<div class="scope-banner">
+        <i class="ti ti-info-circle"></i>
+        <span>${scopeText}</span>
+        <span class="banner-demo">chế độ mô phỏng</span>
+    </div>`;
+}
+
 // === FETCH DATA ===
 async function fetchData() {
     if (isLoading) {
@@ -206,6 +382,11 @@ async function fetchData() {
         allTasks = parseCSV(csvText);
         console.log(`Loaded ${allTasks.length} tasks`);
 
+        // Populate role dropdowns với dữ liệu mới
+        populateRoleDropdowns();
+        updateSidebarForRole();
+        updateUserInfoDisplay();
+
         updateBadge();
         updateLastUpdate();
         renderPage(currentPage);
@@ -220,7 +401,9 @@ async function fetchData() {
 
 // === UPDATE BADGE ===
 function updateBadge() {
-    const count = allTasks.filter(t => t.trangThai === 'Chưa báo cáo').length;
+    // Badge đếm theo phạm vi vai trò hiện tại
+    const visibleTasks = getVisibleTasks();
+    const count = visibleTasks.filter(t => t.trangThai === 'Chưa báo cáo').length;
     const badge = document.getElementById('badgeChuaBaoCao');
     if (badge) {
         badge.textContent = count;
@@ -379,10 +562,12 @@ function parsePercent(value) {
 // ====================================================
 function renderDashboardPage() {
     const container = document.getElementById('mainContainer');
-    const stats = calculateStats(allTasks);
-    const overallProgress = calculateWeightedProgress(allTasks);
+    const visibleTasks = getVisibleTasks();
+    const stats = calculateStats(visibleTasks);
+    const overallProgress = calculateWeightedProgress(visibleTasks);
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <!-- KPI Cards -->
         <div class="kpi-grid">
             <div class="kpi-card">
@@ -461,9 +646,9 @@ function renderDashboardPage() {
         </div>
     `;
 
-    // Render data
-    renderDepartmentTable(allTasks);
-    renderCharts(allTasks);
+    // Render data với visibleTasks
+    renderDepartmentTable(visibleTasks);
+    renderCharts(visibleTasks);
 }
 
 function calculateStats(tasks) {
@@ -671,9 +856,11 @@ function renderStatusChart(tasks) {
 // ====================================================
 function renderKpiPhongBanPage() {
     const container = document.getElementById('mainContainer');
-    const departments = getDepartmentData(allTasks);
+    const visibleTasks = getVisibleTasks();
+    const departments = getDepartmentData(visibleTasks);
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="dept-grid">
             ${departments.map((dept, index) => `
                 <div class="dept-card">
@@ -735,13 +922,15 @@ function getTaskClass(task) {
 // ====================================================
 function renderTheodoiPage() {
     const container = document.getElementById('mainContainer');
+    const visibleTasks = getVisibleTasks();
     // Sử dụng allDepartments (TẤT CẢ phòng ban từ Sheet)
     const departments = allDepartments.length > 0
         ? allDepartments
-        : [...new Set(allTasks.map(t => t.phongBan).filter(d => d))];
+        : [...new Set(visibleTasks.map(t => t.phongBan).filter(d => d))];
     const statuses = ['Hoàn thành', 'Đang thực hiện', 'Trễ hạn', 'Chờ phê duyệt', 'Chưa báo cáo'];
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="filter-bar">
             <select id="filterDepartment">
                 <option value="">Tất cả phòng ban</option>
@@ -793,7 +982,7 @@ function applyFilters() {
     currentFilters.department = deptFilter;
     currentFilters.status = statusFilter;
 
-    let filtered = allTasks;
+    let filtered = getVisibleTasks();
 
     if (deptFilter) {
         filtered = filtered.filter(t => t.phongBan === deptFilter);
@@ -810,7 +999,7 @@ function resetFilters() {
     currentFilters = { department: '', status: '' };
     document.getElementById('filterDepartment').value = '';
     document.getElementById('filterStatus').value = '';
-    renderTasksTable(allTasks);
+    renderTasksTable(getVisibleTasks());
 }
 
 function renderTasksTable(tasks) {
@@ -883,10 +1072,11 @@ function getStatusClass(status) {
 // ====================================================
 function renderNhanSuPage() {
     const container = document.getElementById('mainContainer');
+    const visibleTasks = getVisibleTasks();
 
     // Group tasks by staff
     const staffMap = {};
-    allTasks.forEach(task => {
+    visibleTasks.forEach(task => {
         const name = task.canBo;
         if (!name) return;
 
@@ -919,6 +1109,7 @@ function renderNhanSuPage() {
     }).sort((a, b) => b.progress - a.progress);
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="staff-grid">
             ${staffList.map((staff, index) => `
                 <div class="staff-card" data-staff="${staff.name}">
@@ -1095,11 +1286,13 @@ function renderStaffProfile(staffName) {
 // ====================================================
 function renderCanCapNhatPage() {
     const container = document.getElementById('mainContainer');
+    const visibleTasks = getVisibleTasks();
 
-    const chuaBaoCao = allTasks.filter(t => t.trangThai === 'Chưa báo cáo');
-    const treHan = allTasks.filter(t => t.trangThai === 'Trễ hạn');
+    const chuaBaoCao = visibleTasks.filter(t => t.trangThai === 'Chưa báo cáo');
+    const treHan = visibleTasks.filter(t => t.trangThai === 'Trễ hạn');
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="urgent-section">
             <h3><i class="ti ti-alert-circle"></i> Chưa báo cáo (${chuaBaoCao.length})</h3>
             ${chuaBaoCao.length === 0 ? '<p class="empty-msg">Không có nhiệm vụ nào chưa báo cáo.</p>' : `
@@ -1180,10 +1373,11 @@ function renderCanCapNhatPage() {
 // ====================================================
 function renderBoKPIPage() {
     const container = document.getElementById('mainContainer');
-    const stats = calculateStats(allTasks);
-    const overallProgress = calculateWeightedProgress(allTasks);
-    const departments = getDepartmentData(allTasks);
-    const totalKL = allTasks.reduce((s, t) => s + t.khoiLuong, 0);
+    const visibleTasks = getVisibleTasks();
+    const stats = calculateStats(visibleTasks);
+    const overallProgress = calculateWeightedProgress(visibleTasks);
+    const departments = getDepartmentData(visibleTasks);
+    const totalKL = visibleTasks.reduce((s, t) => s + t.khoiLuong, 0);
 
     // KPI targets (có thể config)
     const targets = {
@@ -1215,6 +1409,7 @@ function renderBoKPIPage() {
         : { class: 'eval-pass', text: '✅ Đã duyệt hết' };
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="section-card">
             <h3><i class="ti ti-target"></i> Bảng KPI toàn xã · Kỳ 06/2026</h3>
             <div class="table-container">
@@ -1336,7 +1531,7 @@ function renderBoKPIPage() {
             <div class="summary-card">
                 <div class="summary-icon"><i class="ti ti-user"></i></div>
                 <div class="summary-content">
-                    <div class="summary-value">${[...new Set(allTasks.map(t => t.canBo).filter(Boolean))].length}</div>
+                    <div class="summary-value">${[...new Set(visibleTasks.map(t => t.canBo).filter(Boolean))].length}</div>
                     <div class="summary-label">Cán bộ</div>
                 </div>
             </div>
@@ -1349,7 +1544,8 @@ function renderBoKPIPage() {
 // ====================================================
 function renderCapNhatSoLieuPage() {
     const container = document.getElementById('mainContainer');
-    const stats = calculateStats(allTasks);
+    const visibleTasks = getVisibleTasks();
+    const stats = calculateStats(visibleTasks);
     const reported = stats.total - stats.noReport;
 
     const lastUpdateEl = document.getElementById('lastUpdate');
@@ -1363,6 +1559,7 @@ function renderCapNhatSoLieuPage() {
     const nextCV = 'CV' + String(maxCV + 1).padStart(3, '0');
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="capnhat-container">
             <!-- PHẦN 1: CÁN BỘ -->
             <div class="section-card capnhat-guide capnhat-canbo">
@@ -1555,6 +1752,7 @@ function renderKPICaNhanPage(data = null) {
     }
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="kpi-canhan-header">
             <label for="selectStaff">Chọn cán bộ:</label>
             <select id="selectStaff" class="staff-select">
@@ -1585,7 +1783,8 @@ function renderKPICaNhanPage(data = null) {
 }
 
 function renderKPICaNhanProfile(staffName) {
-    const staffTasks = allTasks.filter(t => t.canBo === staffName);
+    const visibleTasks = getVisibleTasks();
+    const staffTasks = visibleTasks.filter(t => t.canBo === staffName);
     if (staffTasks.length === 0) {
         return `<p class="error-msg">Không tìm thấy nhiệm vụ của cán bộ: ${staffName}</p>`;
     }
@@ -1694,12 +1893,13 @@ function renderKPICaNhanProfile(staffName) {
 // ====================================================
 function renderPhanCongPage() {
     const container = document.getElementById('mainContainer');
-    const departments = [...new Set(allTasks.map(t => t.phongBan).filter(Boolean))];
-    const totalKL = allTasks.reduce((s, t) => s + t.khoiLuong, 0);
+    const visibleTasks = getVisibleTasks();
+    const departments = [...new Set(visibleTasks.map(t => t.phongBan).filter(Boolean))];
+    const totalKL = visibleTasks.reduce((s, t) => s + t.khoiLuong, 0);
 
     let html = '';
     departments.forEach(dept => {
-        const deptTasks = allTasks.filter(t => t.phongBan === dept);
+        const deptTasks = visibleTasks.filter(t => t.phongBan === dept);
         const deptKL = deptTasks.reduce((s, t) => s + t.khoiLuong, 0);
         const staffInDept = [...new Set(deptTasks.map(t => t.canBo).filter(Boolean))];
 
@@ -1757,10 +1957,11 @@ function renderPhanCongPage() {
     });
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="phancong-summary">
             <div class="summary-item">
                 <i class="ti ti-list-check"></i>
-                <span><strong>${allTasks.length}</strong> nhiệm vụ</span>
+                <span><strong>${visibleTasks.length}</strong> nhiệm vụ</span>
             </div>
             <div class="summary-item">
                 <i class="ti ti-building"></i>
@@ -1782,14 +1983,15 @@ function renderPhanCongPage() {
 // ====================================================
 function renderNguoiDungPage() {
     const container = document.getElementById('mainContainer');
+    const visibleTasks = getVisibleTasks();
 
     // Lấy danh sách người dùng unique từ tasks
     const users = [];
     const seen = new Set();
-    allTasks.forEach(t => {
+    visibleTasks.forEach(t => {
         if (t.canBo && !seen.has(t.canBo)) {
             seen.add(t.canBo);
-            const userTasks = allTasks.filter(x => x.canBo === t.canBo);
+            const userTasks = visibleTasks.filter(x => x.canBo === t.canBo);
             users.push({
                 ten: t.canBo,
                 dept: t.phongBan,
@@ -1809,9 +2011,10 @@ function renderNguoiDungPage() {
         vai: 'Chủ tịch'
     });
 
-    const departments = [...new Set(allTasks.map(t => t.phongBan).filter(Boolean))];
+    const departments = [...new Set(visibleTasks.map(t => t.phongBan).filter(Boolean))];
 
     container.innerHTML = `
+        ${renderScopeBanner()}
         <div class="nguoidung-summary">
             <span><strong>${users.length}</strong> người dùng</span>
             <span>·</span>
