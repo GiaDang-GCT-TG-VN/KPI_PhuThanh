@@ -6,6 +6,8 @@ const AUTO_REFRESH_INTERVAL = 300000; // 5 phút
 
 // === GLOBAL STATE ===
 let allTasks = [];
+let allStaff = [];  // Danh sách TẤT CẢ cán bộ (kể cả không có nhiệm vụ)
+let allDepartments = [];  // Danh sách TẤT CẢ phòng ban
 let departmentChart = null;
 let statusChart = null;
 let isLoading = false;
@@ -249,6 +251,8 @@ const COLUMN_MAP = {
 function parseCSV(csv) {
     const lines = csv.split('\n');
     const tasks = [];
+    const staffSet = new Set();  // Thu thập TẤT CẢ cán bộ
+    const deptSet = new Set();   // Thu thập TẤT CẢ phòng ban
 
     // Tìm dòng header (chứa "Mã việc")
     let headerIndex = -1;
@@ -280,23 +284,32 @@ function parseCSV(csv) {
 
     console.log('Dynamic column mapping:', columnIndex);
 
-    // Parse data rows
+    // Parse ALL data rows (bao gồm cả dòng không có Mã việc)
     for (let i = headerIndex + 1; i < lines.length; i++) {
         const row = parseCSVRow(lines[i]);
 
-        // Lấy giá trị Mã việc
-        const maViecIdx = columnIndex['maViec'];
-        const maViec = maViecIdx !== undefined ? (row[maViecIdx] || '').trim() : '';
+        // Lấy giá trị các cột quan trọng
+        const maViec = getColumnValue(row, columnIndex, 'maViec', '').trim();
+        const canBo = getColumnValue(row, columnIndex, 'canBo', '').trim();
+        const phongBan = getColumnValue(row, columnIndex, 'phongBan', '').trim();
 
-        // Bỏ qua dòng không có Mã việc hoặc không bắt đầu bằng CV
+        // Thu thập TẤT CẢ cán bộ và phòng ban (kể cả dòng không có Mã việc)
+        if (canBo && !canBo.startsWith('HƯỚNG DẪN')) {
+            staffSet.add(canBo);
+        }
+        if (phongBan && !phongBan.startsWith('HƯỚNG DẪN')) {
+            deptSet.add(phongBan);
+        }
+
+        // Chỉ tạo task nếu có Mã việc bắt đầu bằng CV
         if (!maViec || !maViec.startsWith('CV')) continue;
 
         // Tạo task object từ dynamic mapping
         const task = {
             maViec: maViec,
             nhiemVu: getColumnValue(row, columnIndex, 'nhiemVu', ''),
-            phongBan: getColumnValue(row, columnIndex, 'phongBan', ''),
-            canBo: getColumnValue(row, columnIndex, 'canBo', ''),
+            phongBan: phongBan,
+            canBo: canBo,
             khoiLuong: parseFloat(getColumnValue(row, columnIndex, 'khoiLuong', '0')) || 0,
             phanTram: parsePercent(getColumnValue(row, columnIndex, 'phanTram', '0')),
             trangThai: getColumnValue(row, columnIndex, 'trangThai', ''),
@@ -313,6 +326,13 @@ function parseCSV(csv) {
             tasks.push(task);
         }
     }
+
+    // Cập nhật global state với TẤT CẢ cán bộ và phòng ban
+    allStaff = [...staffSet].sort();
+    allDepartments = [...deptSet].sort();
+
+    console.log('All staff collected:', allStaff.length, allStaff);
+    console.log('All departments collected:', allDepartments.length, allDepartments);
 
     return tasks;
 }
@@ -715,7 +735,10 @@ function getTaskClass(task) {
 // ====================================================
 function renderTheodoiPage() {
     const container = document.getElementById('mainContainer');
-    const departments = [...new Set(allTasks.map(t => t.phongBan).filter(d => d))];
+    // Sử dụng allDepartments (TẤT CẢ phòng ban từ Sheet)
+    const departments = allDepartments.length > 0
+        ? allDepartments
+        : [...new Set(allTasks.map(t => t.phongBan).filter(d => d))];
     const statuses = ['Hoàn thành', 'Đang thực hiện', 'Trễ hạn', 'Chờ phê duyệt', 'Chưa báo cáo'];
 
     container.innerHTML = `
@@ -1509,8 +1532,10 @@ let selectedStaffKPI = null;
 function renderKPICaNhanPage(data = null) {
     const container = document.getElementById('mainContainer');
 
-    // Lấy danh sách cán bộ unique
-    const staffList = [...new Set(allTasks.map(t => t.canBo).filter(Boolean))].sort();
+    // Sử dụng allStaff (TẤT CẢ cán bộ từ Sheet, kể cả không có nhiệm vụ)
+    const staffList = allStaff.length > 0
+        ? allStaff
+        : [...new Set(allTasks.map(t => t.canBo).filter(Boolean))].sort();
 
     // Nếu có data.staff từ navigation, set selected
     if (data && data.staff) {
