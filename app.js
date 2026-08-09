@@ -1,8 +1,13 @@
 // === CONFIG ===
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj824lSoKDpnjPl2ChHFKw832dRjXXiDeF_xMlo4hbjyo6WtoefDiGT4PctBSU6muoXF9cnN6hkRSQ/pub?gid=1567229633&single=true&output=csv';
-const SHEET_EDIT_URL = 'https://docs.google.com/spreadsheets/d/1aMBYqbOkC3xAmgEZUDOvQNBz6yOFU0AeJIsBMdjMxHk/edit?gid=1567229633#gid=1567229633';
-const CORS_PROXY = 'https://corsproxy.io/?';
-const AUTO_REFRESH_INTERVAL = 300000; // 5 phút
+const CONFIG = {
+    CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQj824lSoKDpnjPl2ChHFKw832dRjXXiDeF_xMlo4hbjyo6WtoefDiGT4PctBSU6muoXF9cnN6hkRSQ/pub?gid=1567229633&single=true&output=csv',
+    SHEET_EDIT_URL: 'https://docs.google.com/spreadsheets/d/1aMBYqbOkC3xAmgEZUDOvQNBz6yOFU0AeJIsBMdjMxHk/edit?gid=1567229633#gid=1567229633',
+    CORS_PROXY: 'https://corsproxy.io/?',
+    REFRESH_INTERVAL: 300000,  // 5 phút
+    KY_HIEN_TAI: '06/2026',
+    MUC_TIEU_PCT: 80,          // mục tiêu 80% dùng ở trang Bộ KPI
+    DON_VI: 'UBND xã Phú Thành',
+};
 
 // === GLOBAL STATE ===
 let allTasks = [];
@@ -42,7 +47,7 @@ const MENU_ACCESS = {
 
 // === PAGE TITLES ===
 const pageTitles = {
-    'dashboard': { title: 'Dashboard', subtitle: 'Tổng quan KPI toàn xã · Kỳ 06/2026' },
+    'dashboard': { title: 'Dashboard', subtitle: `Tổng quan KPI toàn xã · Kỳ ${CONFIG.KY_HIEN_TAI}` },
     'bo-kpi': { title: 'Bộ KPI', subtitle: 'Quản lý các chỉ tiêu KPI' },
     'capnhat-solieu': { title: 'Cập nhật số liệu', subtitle: 'Nhập liệu KPI định kỳ' },
     'kpi-canhan': { title: 'KPI cá nhân', subtitle: 'Theo dõi KPI từng cán bộ' },
@@ -65,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto-refresh mỗi 5 phút
     setInterval(() => {
         fetchData();
-    }, AUTO_REFRESH_INTERVAL);
+    }, CONFIG.REFRESH_INTERVAL);
 });
 
 // === NAVIGATION ===
@@ -148,23 +153,6 @@ function renderPage(page, data = null) {
         default:
             renderDashboardPage();
     }
-}
-
-// === PLACEHOLDER PAGE ===
-function renderPlaceholderPage(page) {
-    const container = document.getElementById('mainContainer');
-    const pageInfo = pageTitles[page] || { title: page, subtitle: '' };
-
-    container.innerHTML = `
-        <div class="placeholder-page">
-            <div class="placeholder-card">
-                <i class="ti ti-lock placeholder-icon"></i>
-                <h2>${pageInfo.title}</h2>
-                <p class="placeholder-subtitle">${pageInfo.subtitle}</p>
-                <p class="placeholder-note">Tính năng đang phát triển — sẽ hoàn thiện ở bước 3 (App riêng)</p>
-            </div>
-        </div>
-    `;
 }
 
 // === MOBILE MENU ===
@@ -358,7 +346,7 @@ async function fetchData() {
     try {
         let csvText;
         const cacheBuster = '&_t=' + Date.now();
-        const urlWithCacheBust = SHEET_CSV_URL + cacheBuster;
+        const urlWithCacheBust = CONFIG.CSV_URL + cacheBuster;
 
         try {
             const response = await fetch(urlWithCacheBust, {
@@ -368,7 +356,7 @@ async function fetchData() {
             if (!response.ok) throw new Error('Direct fetch failed');
             csvText = await response.text();
         } catch (e) {
-            const response = await fetch(CORS_PROXY + encodeURIComponent(urlWithCacheBust), {
+            const response = await fetch(CONFIG.CORS_PROXY + encodeURIComponent(urlWithCacheBust), {
                 cache: 'no-store'
             });
             if (!response.ok) throw new Error('Không thể tải dữ liệu');
@@ -376,6 +364,12 @@ async function fetchData() {
         }
 
         allTasks = parseCSV(csvText);
+
+        // Kiểm tra dữ liệu rỗng
+        if (allTasks.length === 0) {
+            showError('Không có dữ liệu nhiệm vụ. Kiểm tra Google Sheet hoặc cấu trúc file CSV.');
+            return;
+        }
 
         // Populate leader dropdown
         populateLeaderDropdown();
@@ -568,7 +562,7 @@ function renderDashboardPage() {
             <div class="kpi-card">
                 <div class="kpi-label"><i class="ti ti-clipboard-list"></i> Tổng nhiệm vụ</div>
                 <div class="kpi-number" style="color: #14211b;">${stats.total}</div>
-                <div class="kpi-sub">kỳ 06/2026</div>
+                <div class="kpi-sub">kỳ ${CONFIG.KY_HIEN_TAI}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label"><i class="ti ti-circle-check"></i> Hoàn thành</div>
@@ -703,39 +697,22 @@ function getDepartmentData(tasks) {
     tasks.forEach(task => {
         const dept = task.phongBan;
         if (!dept) return;
-
         if (!deptMap[dept]) {
-            deptMap[dept] = {
-                name: dept,
-                tasks: [],
-                totalWeight: 0,
-                weightedProgress: 0
-            };
+            deptMap[dept] = { name: dept, tasks: [] };
         }
-
         deptMap[dept].tasks.push(task);
-        deptMap[dept].totalWeight += task.khoiLuong;
-        deptMap[dept].weightedProgress += task.khoiLuong * task.phanTram;
     });
 
     return Object.values(deptMap).map(dept => {
-        const progress = dept.totalWeight > 0
-            ? (dept.weightedProgress / dept.totalWeight) * 100
-            : 0;
-
+        const deptStats = calculateStats(dept.tasks);
+        const totalWeight = dept.tasks.reduce((s, t) => s + t.khoiLuong, 0);
         return {
             name: dept.name,
             taskCount: dept.tasks.length,
-            totalWeight: dept.totalWeight,
-            progress: progress,
+            totalWeight: totalWeight,
+            progress: calculateWeightedProgress(dept.tasks),
             tasks: dept.tasks,
-            stats: {
-                completed: dept.tasks.filter(t => t.trangThai === 'Hoàn thành').length,
-                inProgress: dept.tasks.filter(t => t.trangThai === 'Đang thực hiện').length,
-                overdue: dept.tasks.filter(t => t.trangThai === 'Trễ hạn').length,
-                pending: dept.tasks.filter(t => t.trangThai === 'Chờ phê duyệt').length,
-                noReport: dept.tasks.filter(t => t.trangThai === 'Chưa báo cáo').length
-            }
+            stats: deptStats
         };
     }).sort((a, b) => b.progress - a.progress);
 }
@@ -1070,32 +1047,20 @@ function renderNhanSuPage() {
     visibleTasks.forEach(task => {
         const name = task.canBo;
         if (!name) return;
-
         if (!staffMap[name]) {
-            staffMap[name] = {
-                name: name,
-                department: task.phongBan,
-                tasks: [],
-                totalWeight: 0,
-                weightedProgress: 0
-            };
+            staffMap[name] = { name, department: task.phongBan, tasks: [] };
         }
         staffMap[name].tasks.push(task);
-        staffMap[name].totalWeight += task.khoiLuong;
-        staffMap[name].weightedProgress += task.khoiLuong * task.phanTram;
     });
 
     const staffList = Object.values(staffMap).map(s => {
-        const progress = s.totalWeight > 0 ? (s.weightedProgress / s.totalWeight) * 100 : 0;
+        const staffStats = calculateStats(s.tasks);
+        const totalWeight = s.tasks.reduce((sum, t) => sum + t.khoiLuong, 0);
         return {
             ...s,
-            progress: progress,
-            stats: {
-                completed: s.tasks.filter(t => t.trangThai === 'Hoàn thành').length,
-                inProgress: s.tasks.filter(t => t.trangThai === 'Đang thực hiện').length,
-                overdue: s.tasks.filter(t => t.trangThai === 'Trễ hạn').length,
-                noReport: s.tasks.filter(t => t.trangThai === 'Chưa báo cáo').length
-            }
+            totalWeight,
+            progress: calculateWeightedProgress(s.tasks),
+            stats: staffStats
         };
     }).sort((a, b) => b.progress - a.progress);
 
@@ -1177,20 +1142,8 @@ function renderStaffProfile(staffName) {
     }
 
     const department = staffTasks[0].phongBan;
-    let totalWeight = 0, weightedProgress = 0;
-    staffTasks.forEach(t => {
-        totalWeight += t.khoiLuong;
-        weightedProgress += t.khoiLuong * t.phanTram;
-    });
-    const progress = totalWeight > 0 ? (weightedProgress / totalWeight) * 100 : 0;
-
-    const stats = {
-        completed: staffTasks.filter(t => t.trangThai === 'Hoàn thành').length,
-        inProgress: staffTasks.filter(t => t.trangThai === 'Đang thực hiện').length,
-        overdue: staffTasks.filter(t => t.trangThai === 'Trễ hạn').length,
-        pending: staffTasks.filter(t => t.trangThai === 'Chờ phê duyệt').length,
-        noReport: staffTasks.filter(t => t.trangThai === 'Chưa báo cáo').length
-    };
+    const progress = calculateWeightedProgress(staffTasks);
+    const stats = calculateStats(staffTasks);
 
     // Update header
     document.getElementById('pageTitle').textContent = staffName;
@@ -1396,7 +1349,7 @@ function renderBoKPIPage() {
 
     // KPI targets (có thể config)
     const targets = {
-        pctHoanThanh: 80,
+        pctHoanThanh: CONFIG.MUC_TIEU_PCT,
         hoanThanhTasks: stats.total,
         treHan: 0,
         chuaBaoCao: 0,
@@ -1426,7 +1379,7 @@ function renderBoKPIPage() {
     container.innerHTML = `
         ${renderScopeBanner()}
         <div class="section-card">
-            <h3><i class="ti ti-target"></i> Bảng KPI toàn xã · Kỳ 06/2026</h3>
+            <h3><i class="ti ti-target"></i> Bảng KPI toàn xã · Kỳ ${CONFIG.KY_HIEN_TAI}</h3>
             <div class="table-container">
                 <table class="kpi-table">
                     <thead>
@@ -1617,7 +1570,7 @@ function renderCapNhatSoLieuPage() {
                     </div>
                 </div>
 
-                <a href="${SHEET_EDIT_URL}" target="_blank" rel="noopener" class="btn-open-sheet">
+                <a href="${CONFIG.SHEET_EDIT_URL}" target="_blank" rel="noopener" class="btn-open-sheet">
                     <i class="ti ti-external-link"></i> Mở Google Sheets
                 </a>
 
@@ -1691,7 +1644,7 @@ function renderCapNhatSoLieuPage() {
                     </div>
                 </div>
 
-                <a href="${SHEET_EDIT_URL}" target="_blank" rel="noopener" class="btn-open-sheet btn-admin">
+                <a href="${CONFIG.SHEET_EDIT_URL}" target="_blank" rel="noopener" class="btn-open-sheet btn-admin">
                     <i class="ti ti-external-link"></i> Mở Google Sheets (Admin)
                 </a>
             </div>
@@ -1806,21 +1759,9 @@ function renderKPICaNhanProfile(staffName) {
     }
 
     const department = staffTasks[0].phongBan;
-    let totalWeight = 0, weightedProgress = 0;
-    staffTasks.forEach(t => {
-        totalWeight += t.khoiLuong;
-        weightedProgress += t.khoiLuong * t.phanTram;
-    });
-    const progress = totalWeight > 0 ? (weightedProgress / totalWeight) * 100 : 0;
-
-    const stats = {
-        total: staffTasks.length,
-        completed: staffTasks.filter(t => t.trangThai === 'Hoàn thành').length,
-        inProgress: staffTasks.filter(t => t.trangThai === 'Đang thực hiện').length,
-        overdue: staffTasks.filter(t => t.trangThai === 'Trễ hạn').length,
-        pending: staffTasks.filter(t => t.trangThai === 'Chờ phê duyệt').length,
-        noReport: staffTasks.filter(t => t.trangThai === 'Chưa báo cáo').length
-    };
+    const totalWeight = staffTasks.reduce((s, t) => s + t.khoiLuong, 0);
+    const progress = calculateWeightedProgress(staffTasks);
+    const stats = calculateStats(staffTasks);
 
     return `
         <div class="kpi-canhan-profile">
@@ -1828,7 +1769,7 @@ function renderKPICaNhanProfile(staffName) {
                 <div class="profile-avatar">${staffName.charAt(0).toUpperCase()}</div>
                 <div class="profile-info">
                     <h2>${staffName}</h2>
-                    <p>${department} · Kỳ 06/2026</p>
+                    <p>${department} · Kỳ ${CONFIG.KY_HIEN_TAI}</p>
                 </div>
                 <div class="profile-progress">
                     <div class="progress-circle" style="--progress: ${progress}%">
