@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupMobileMenu();
     setupRefreshButton();
     setupRoleSwitcher();
+    setupDelegatedClicks();
     fetchData();
 
     // Auto-refresh mỗi 5 phút
@@ -41,6 +42,67 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchData();
     }, CONFIG.REFRESH_INTERVAL);
 });
+
+
+// === CLICK TRONG VÙNG NỘI DUNG (event delegation) ===
+// Gắn MỘT listener duy nhất lên #mainContainer, gọi đúng 1 lần lúc khởi tạo.
+// Vì #mainContainer không bao giờ bị xóa, mọi phần tử render sau đó đều hoạt động
+// — không cần gắn lại sau mỗi lần render, không lo trùng listener.
+//
+// Quy ước attribute (dùng thống nhất ở mọi file render/):
+//   data-staff="Tên cán bộ"   → mở hồ sơ cán bộ
+//   data-dept="Tên phòng ban" → sang Theo dõi, lọc sẵn phòng ban đó
+//   data-page="ten-trang"     → điều hướng nội bộ
+//   data-action="..."         → hành động riêng (back-to-staff, toggle-dept)
+function setupDelegatedClicks() {
+    const container = document.getElementById('mainContainer');
+    if (!container) return;
+    // Chống gắn 2 lần: 2 listener sẽ khiến toggle chạy đôi và tự hủy nhau
+    if (container.dataset.clicksBound) return;
+    container.dataset.clicksBound = '1';
+
+    container.addEventListener('click', (e) => {
+        const action = e.target.closest('[data-action]');
+        if (action) {
+            e.preventDefault();
+            if (action.dataset.action === 'back-to-staff') {
+                currentStaffProfile = null;
+                document.getElementById('pageTitle').textContent = 'Nhân sự';
+                document.getElementById('pageSubtitle').textContent = 'Danh sách cán bộ và nhiệm vụ';
+                renderNhanSuPage();
+            } else if (action.dataset.action === 'toggle-dept') {
+                action.parentElement.classList.toggle('collapsed');
+            }
+            return;
+        }
+
+        const staffEl = e.target.closest('[data-staff]');
+        if (staffEl) {
+            e.preventDefault();
+            navigateTo('nhansu', { staff: staffEl.dataset.staff });
+            return;
+        }
+
+        const deptEl = e.target.closest('[data-dept]');
+        if (deptEl) {
+            e.preventDefault();
+            goToTheoDoiWithDept(deptEl.dataset.dept);
+            return;
+        }
+
+        const pageEl = e.target.closest('[data-page]');
+        if (pageEl) {
+            e.preventDefault();
+            navigateTo(pageEl.dataset.page);
+        }
+    });
+}
+
+// Sang trang Theo dõi công việc với bộ lọc phòng ban đặt sẵn
+function goToTheoDoiWithDept(dept) {
+    currentFilters = { department: dept, status: '' };
+    navigateTo('theodoi');
+}
 
 
 // === NAVIGATION ===

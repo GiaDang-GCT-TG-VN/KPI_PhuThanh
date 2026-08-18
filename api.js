@@ -101,9 +101,6 @@ function parseCSV(csv) {
     const headerRow = rows[headerIndex];
     const columnIndex = {};
 
-    // DEBUG: In ra header thực tế
-    console.log('=== RAW CSV HEADERS ===', headerRow);
-
     headerRow.forEach((header, index) => {
         // Normalize header: remove extra whitespace, newlines
         const normalizedHeader = header.replace(/\s+/g, ' ').trim();
@@ -117,11 +114,12 @@ function parseCSV(csv) {
         }
     });
 
-    // DEBUG: In ra column mapping
-    console.log('=== COLUMN INDEX MAP ===', columnIndex);
-    console.log('=== MISSING COLUMNS ===',
-        ['maViec','nhiemVu','phongBan','canBo','khoiLuong','phanTram','trangThai']
-            .filter(c => columnIndex[c] === undefined));
+    // Cảnh báo nếu Sheet thiếu cột bắt buộc (giữ lại — hữu ích khi xã sửa Sheet)
+    const missing = ['maViec', 'nhiemVu', 'phongBan', 'canBo', 'khoiLuong', 'phanTram', 'trangThai']
+        .filter(c => columnIndex[c] === undefined);
+    if (missing.length) {
+        console.warn('[CSV] Sheet thiếu cột:', missing.join(', '), '— các cột này sẽ để trống.');
+    }
 
     // Parse ALL data rows (bao gồm cả dòng không có Mã việc)
     for (let i = headerIndex + 1; i < rows.length; i++) {
@@ -169,11 +167,6 @@ function parseCSV(csv) {
     // Cập nhật global state với TẤT CẢ cán bộ và phòng ban
     allStaff = [...staffSet].sort();
     allDepartments = [...deptSet].sort();
-
-    // DEBUG: In ra dữ liệu parsed
-    console.log('=== FIRST 3 PARSED TASKS ===', tasks.slice(0, 3));
-    console.log('=== UNIQUE STATUS VALUES ===', [...new Set(tasks.map(t => t.trangThai))]);
-    console.log('=== UNIQUE PCT VALUES ===', [...new Set(tasks.map(t => t.phanTram))]);
 
     return tasks;
 }

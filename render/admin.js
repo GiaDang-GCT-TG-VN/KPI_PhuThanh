@@ -172,14 +172,7 @@ function renderCapNhatSoLieuPage() {
         </div>
     `;
 
-    // Setup internal links
-    document.querySelectorAll('.link-internal').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const page = link.dataset.page;
-            navigateTo(page);
-        });
-    });
+    // Link nội bộ do setupDelegatedClicks() trong app.js xử lý (data-page)
 }
 
 

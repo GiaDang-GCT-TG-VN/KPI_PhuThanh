@@ -243,7 +243,7 @@ function renderKpiPhongBanPage() {
         ${renderScopeBanner()}
         <div class="dept-grid">
             ${departments.map((dept, index) => `
-                <div class="dept-card">
+                <div class="dept-card" data-dept="${escapeHtml(dept.name)}" title="Bấm để xem nhiệm vụ của ${escapeHtml(dept.name)}">
                     <div class="dept-header">
                         <span class="rank-badge">#${index + 1}</span>
                         <h4>${escapeHtml(dept.name)}</h4>

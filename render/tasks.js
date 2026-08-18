@@ -132,15 +132,7 @@ function renderTasksTable(tasks) {
         `;
         tbody.appendChild(row);
     });
-
-    // Add click handlers for staff names
-    document.querySelectorAll('.name-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const staffName = link.dataset.staff;
-            navigateTo('nhansu', { staff: staffName });
-        });
-    });
+    // Click tên cán bộ do setupDelegatedClicks() trong app.js xử lý (data-staff)
 }
 
 
@@ -221,14 +213,7 @@ function renderCanCapNhatPage() {
         </div>
     `;
 
-    // Add click handlers for staff names
-    document.querySelectorAll('.name-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const staffName = link.dataset.staff;
-            navigateTo('nhansu', { staff: staffName });
-        });
-    });
+    // Click tên cán bộ do setupDelegatedClicks() trong app.js xử lý (data-staff)
 }
 
 
@@ -248,8 +233,8 @@ function renderPhanCongPage() {
         const staffInDept = [...new Set(deptTasks.map(t => t.canBo).filter(Boolean))];
 
         html += `
-            <div class="phancong-dept" data-dept="${escapeHtml(dept)}">
-                <div class="dept-header-pc">
+            <div class="phancong-dept" data-dept-group="${escapeHtml(dept)}">
+                <div class="dept-header-pc" data-action="toggle-dept">
                     <i class="ti ti-folder"></i>
                     <strong>${escapeHtml(dept)}</strong>
                     <span class="dept-meta-pc">${deptTasks.length} việc · KL: ${deptKL}</span>
@@ -321,10 +306,5 @@ function renderPhanCongPage() {
         </div>
     `;
 
-    // Gập/mở nhóm phòng ban (thay cho onclick inline đã gỡ ở F1)
-    container.querySelectorAll('.dept-header-pc').forEach(header => {
-        header.addEventListener('click', () => {
-            header.parentElement.classList.toggle('collapsed');
-        });
-    });
+    // Gập/mở nhóm do setupDelegatedClicks() xử lý (data-action="toggle-dept")
 }

@@ -668,6 +668,13 @@ tbody tr:hover { background: #f1f5f3; }
     padding: 1.25rem;
     position: relative;
     border-left: 4px solid var(--primary);
+    cursor: pointer;
+    transition: box-shadow .15s, transform .15s;
+}
+
+.dept-card:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .09);
+    transform: translateY(-2px);
 }
 
 /* Ranking colors */

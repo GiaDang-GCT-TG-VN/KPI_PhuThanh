@@ -63,13 +63,7 @@ function renderNhanSuPage() {
         </div>
     `;
 
-    // Add click handlers
-    document.querySelectorAll('.staff-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const staffName = card.dataset.staff;
-            navigateTo('nhansu', { staff: staffName });
-        });
-    });
+    // Click thẻ cán bộ do setupDelegatedClicks() trong app.js xử lý (data-staff)
 }
 
 
@@ -81,7 +75,7 @@ function renderStaffProfile(staffName) {
     const visibleStaff = getVisibleStaff();
     if (!visibleStaff.includes(staffName)) {
         container.innerHTML = `
-            <button class="back-btn" id="backToStaffList">
+            <button class="back-btn" data-action="back-to-staff">
                 <i class="ti ti-arrow-left"></i> Quay lại danh sách
             </button>
             <div class="error-page">
@@ -90,12 +84,6 @@ function renderStaffProfile(staffName) {
                 <p class="error-sub">Cán bộ "${escapeHtml(staffName)}" không thuộc phạm vi quản lý của bạn.</p>
             </div>
         `;
-        document.getElementById('backToStaffList')?.addEventListener('click', () => {
-            currentStaffProfile = null;
-            document.getElementById('pageTitle').textContent = 'Nhân sự';
-            document.getElementById('pageSubtitle').textContent = 'Danh sách cán bộ và nhiệm vụ';
-            renderNhanSuPage();
-        });
         return;
     }
 
@@ -116,7 +104,7 @@ function renderStaffProfile(staffName) {
     document.getElementById('pageSubtitle').textContent = `Hồ sơ cán bộ · ${department}`;
 
     container.innerHTML = `
-        <button class="back-btn" id="backToStaffList">
+        <button class="back-btn" data-action="back-to-staff">
             <i class="ti ti-arrow-left"></i> Quay lại danh sách
         </button>
 
@@ -207,12 +195,7 @@ function renderStaffProfile(staffName) {
         </div>
     `;
 
-    document.getElementById('backToStaffList').addEventListener('click', () => {
-        currentStaffProfile = null;
-        document.getElementById('pageTitle').textContent = 'Nhân sự';
-        document.getElementById('pageSubtitle').textContent = 'Danh sách cán bộ và nhiệm vụ';
-        renderNhanSuPage();
-    });
+    // Nút Quay lại do setupDelegatedClicks() xử lý (data-action="back-to-staff")
 }
 
 
