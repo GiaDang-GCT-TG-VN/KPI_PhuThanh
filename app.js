@@ -9,6 +9,21 @@ const CONFIG = {
     DON_VI: 'UBND xã Phú Thành',
 };
 
+// === BẢO MẬT ===
+// Escape dữ liệu trước khi chèn vào innerHTML.
+// BẮT BUỘC dùng cho MỌI giá trị đến từ Google Sheets / người dùng nhập:
+// tên nhiệm vụ, tên người, tên đơn vị, ghi chú, trạng thái...
+// Không cần dùng cho số hoặc chuỗi do chính code sinh ra (class name, URL cố định).
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // === GLOBAL STATE ===
 let allTasks = [];
 let allStaff = [];  // Danh sách TẤT CẢ cán bộ (kể cả không có nhiệm vụ)
@@ -191,7 +206,7 @@ function populateLeaderDropdown() {
     html += '<optgroup label="Lãnh đạo xã">';
     lanhdao.forEach(l => {
         const selected = l.id === currentLeader.id ? 'selected' : '';
-        html += `<option value="${l.id}" ${selected}>${l.name} — ${l.title}</option>`;
+        html += `<option value="${escapeHtml(l.id)}" ${selected}>${escapeHtml(l.name)} — ${escapeHtml(l.title)}</option>`;
     });
     html += '</optgroup>';
 
@@ -199,7 +214,7 @@ function populateLeaderDropdown() {
     html += '<optgroup label="Trưởng đơn vị">';
     truongdonvi.forEach(l => {
         const selected = l.id === currentLeader.id ? 'selected' : '';
-        html += `<option value="${l.id}" ${selected}>${l.name} — ${l.title}</option>`;
+        html += `<option value="${escapeHtml(l.id)}" ${selected}>${escapeHtml(l.name)} — ${escapeHtml(l.title)}</option>`;
     });
     html += '</optgroup>';
 
@@ -309,11 +324,14 @@ function renderScopeBanner() {
     // Chủ tịch không cần banner
     if (currentLeader.role === 'chutich') return '';
 
+    const name = escapeHtml(currentLeader.name);
+    const title = escapeHtml(currentLeader.title);
+
     let text = '';
     if (currentLeader.role === 'phochutich') {
-        text = `${currentLeader.name} — ${currentLeader.title} · xem toàn xã`;
+        text = `${name} — ${title} · xem toàn xã`;
     } else {
-        text = `${currentLeader.name} — ${currentLeader.title} · chỉ xem dữ liệu <strong>${currentLeader.scope}</strong>`;
+        text = `${name} — ${title} · chỉ xem dữ liệu <strong>${escapeHtml(currentLeader.scope)}</strong>`;
     }
 
     return `<div class="scope-banner">
@@ -711,7 +729,7 @@ function renderDepartmentTable(tasks) {
     departments.forEach(dept => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><strong>${dept.name}</strong></td>
+            <td><strong>${escapeHtml(dept.name)}</strong></td>
             <td>${dept.taskCount}</td>
             <td>${dept.totalWeight}</td>
             <td>
@@ -874,7 +892,7 @@ function renderKpiPhongBanPage() {
                 <div class="dept-card">
                     <div class="dept-header">
                         <span class="rank-badge">#${index + 1}</span>
-                        <h4>${dept.name}</h4>
+                        <h4>${escapeHtml(dept.name)}</h4>
                     </div>
                     <div class="dept-progress">
                         <div class="progress-bar">
@@ -905,7 +923,7 @@ function renderKpiPhongBanPage() {
                         <ul>
                             ${dept.tasks.slice(0, 5).map(task => `
                                 <li class="${getTaskClass(task)}">
-                                    <span class="task-name">${task.nhiemVu}</span>
+                                    <span class="task-name">${escapeHtml(task.nhiemVu)}</span>
                                     <span class="task-progress">${(task.phanTram * 100).toFixed(0)}%</span>
                                 </li>
                             `).join('')}
@@ -943,11 +961,11 @@ function renderTheodoiPage() {
         <div class="filter-bar">
             <select id="filterDepartment">
                 <option value="">Tất cả phòng ban</option>
-                ${departments.map(d => `<option value="${d}" ${currentFilters.department === d ? 'selected' : ''}>${d}</option>`).join('')}
+                ${departments.map(d => `<option value="${escapeHtml(d)}" ${currentFilters.department === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
             </select>
             <select id="filterStatus">
                 <option value="">Tất cả trạng thái</option>
-                ${statuses.map(s => `<option value="${s}" ${currentFilters.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                ${statuses.map(s => `<option value="${escapeHtml(s)}" ${currentFilters.status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
             </select>
             <button id="resetFilters" class="btn-secondary">Đặt lại</button>
         </div>
@@ -1034,10 +1052,10 @@ function renderTasksTable(tasks) {
         const hanStyle = task.trangThai === 'Trễ hạn' ? 'color: #dc2626; font-weight: 600;' : '';
 
         row.innerHTML = `
-            <td><strong>${task.maViec}</strong></td>
-            <td>${task.nhiemVu}</td>
-            <td>${task.phongBan}</td>
-            <td><a href="#" class="name-link" data-staff="${task.canBo}">${task.canBo}</a></td>
+            <td><strong>${escapeHtml(task.maViec)}</strong></td>
+            <td>${escapeHtml(task.nhiemVu)}</td>
+            <td>${escapeHtml(task.phongBan)}</td>
+            <td><a href="#" class="name-link" data-staff="${escapeHtml(task.canBo)}">${escapeHtml(task.canBo)}</a></td>
             <td>${task.khoiLuong}</td>
             <td>
                 <div class="progress-cell">
@@ -1047,10 +1065,10 @@ function renderTasksTable(tasks) {
                     <span>${progressPercent}%</span>
                 </div>
             </td>
-            <td><span class="status-badge ${statusClass}">${task.trangThai}</span></td>
-            <td style="${hanStyle}">${task.hanHoanThanh}</td>
-            <td>${task.ngayCapNhat}</td>
-            <td>${task.ghiChu}</td>
+            <td><span class="status-badge ${statusClass}">${escapeHtml(task.trangThai)}</span></td>
+            <td style="${hanStyle}">${escapeHtml(task.hanHoanThanh)}</td>
+            <td>${escapeHtml(task.ngayCapNhat)}</td>
+            <td>${escapeHtml(task.ghiChu)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -1109,12 +1127,12 @@ function renderNhanSuPage() {
         ${renderScopeBanner()}
         <div class="staff-grid">
             ${staffList.map((staff, index) => `
-                <div class="staff-card" data-staff="${staff.name}">
+                <div class="staff-card" data-staff="${escapeHtml(staff.name)}">
                     <div class="staff-header">
-                        <div class="staff-avatar">${staff.name.charAt(0).toUpperCase()}</div>
+                        <div class="staff-avatar">${escapeHtml(staff.name.charAt(0).toUpperCase())}</div>
                         <div class="staff-info">
-                            <h4>${staff.name}</h4>
-                            <span class="staff-dept">${staff.department}</span>
+                            <h4>${escapeHtml(staff.name)}</h4>
+                            <span class="staff-dept">${escapeHtml(staff.department)}</span>
                         </div>
                         <span class="rank-badge">#${index + 1}</span>
                     </div>
@@ -1162,7 +1180,7 @@ function renderStaffProfile(staffName) {
             <div class="error-page">
                 <i class="ti ti-lock"></i>
                 <p>Không có quyền xem cán bộ này</p>
-                <p class="error-sub">Cán bộ "${staffName}" không thuộc phạm vi quản lý của bạn.</p>
+                <p class="error-sub">Cán bộ "${escapeHtml(staffName)}" không thuộc phạm vi quản lý của bạn.</p>
             </div>
         `;
         document.getElementById('backToStaffList')?.addEventListener('click', () => {
@@ -1178,7 +1196,7 @@ function renderStaffProfile(staffName) {
     const visibleTasks = getVisibleTasks();
     const staffTasks = visibleTasks.filter(t => t.canBo === staffName);
     if (staffTasks.length === 0) {
-        container.innerHTML = `<p>Không tìm thấy nhiệm vụ của cán bộ: ${staffName}</p>`;
+        container.innerHTML = `<p>Không tìm thấy nhiệm vụ của cán bộ: ${escapeHtml(staffName)}</p>`;
         return;
     }
 
@@ -1196,10 +1214,10 @@ function renderStaffProfile(staffName) {
         </button>
 
         <div class="profile-header">
-            <div class="profile-avatar">${staffName.charAt(0).toUpperCase()}</div>
+            <div class="profile-avatar">${escapeHtml(staffName.charAt(0).toUpperCase())}</div>
             <div class="profile-info">
-                <h2>${staffName}</h2>
-                <p>${department}</p>
+                <h2>${escapeHtml(staffName)}</h2>
+                <p>${escapeHtml(department)}</p>
             </div>
             <div class="profile-progress">
                 <div class="progress-circle" style="--progress: ${progress}%">
@@ -1259,8 +1277,8 @@ function renderStaffProfile(staffName) {
                             }
                             return `
                                 <tr style="${rowStyle}">
-                                    <td><strong>${task.maViec}</strong></td>
-                                    <td>${task.nhiemVu}</td>
+                                    <td><strong>${escapeHtml(task.maViec)}</strong></td>
+                                    <td>${escapeHtml(task.nhiemVu)}</td>
                                     <td>${task.khoiLuong}</td>
                                     <td>
                                         <div class="progress-cell">
@@ -1270,9 +1288,9 @@ function renderStaffProfile(staffName) {
                                             <span>${pct}%</span>
                                         </div>
                                     </td>
-                                    <td><span class="status-badge ${statusClass}">${task.trangThai}</span></td>
-                                    <td>${task.hanHoanThanh}</td>
-                                    <td>${task.ngayCapNhat}</td>
+                                    <td><span class="status-badge ${statusClass}">${escapeHtml(task.trangThai)}</span></td>
+                                    <td>${escapeHtml(task.hanHoanThanh)}</td>
+                                    <td>${escapeHtml(task.ngayCapNhat)}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -1320,12 +1338,12 @@ function renderCanCapNhatPage() {
                         <tbody>
                             ${chuaBaoCao.map(task => `
                                 <tr>
-                                    <td><strong>${task.maViec}</strong></td>
-                                    <td>${task.nhiemVu}</td>
-                                    <td>${task.phongBan}</td>
-                                    <td><a href="#" class="name-link" data-staff="${task.canBo}">${task.canBo}</a></td>
+                                    <td><strong>${escapeHtml(task.maViec)}</strong></td>
+                                    <td>${escapeHtml(task.nhiemVu)}</td>
+                                    <td>${escapeHtml(task.phongBan)}</td>
+                                    <td><a href="#" class="name-link" data-staff="${escapeHtml(task.canBo)}">${escapeHtml(task.canBo)}</a></td>
                                     <td>${task.khoiLuong}</td>
-                                    <td>${task.hanHoanThanh}</td>
+                                    <td>${escapeHtml(task.hanHoanThanh)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1352,12 +1370,12 @@ function renderCanCapNhatPage() {
                         <tbody>
                             ${treHan.map(task => `
                                 <tr>
-                                    <td><strong>${task.maViec}</strong></td>
-                                    <td>${task.nhiemVu}</td>
-                                    <td>${task.phongBan}</td>
-                                    <td><a href="#" class="name-link" data-staff="${task.canBo}">${task.canBo}</a></td>
+                                    <td><strong>${escapeHtml(task.maViec)}</strong></td>
+                                    <td>${escapeHtml(task.nhiemVu)}</td>
+                                    <td>${escapeHtml(task.phongBan)}</td>
+                                    <td><a href="#" class="name-link" data-staff="${escapeHtml(task.canBo)}">${escapeHtml(task.canBo)}</a></td>
                                     <td>${(task.phanTram * 100).toFixed(0)}%</td>
-                                    <td style="color: #dc2626; font-weight: 600;">${task.hanHoanThanh}</td>
+                                    <td style="color: #dc2626; font-weight: 600;">${escapeHtml(task.hanHoanThanh)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1496,7 +1514,7 @@ function renderBoKPIPage() {
                             return `
                                 <tr>
                                     <td><span class="rank-badge">${i + 1}</span></td>
-                                    <td><strong>${dept.name}</strong></td>
+                                    <td><strong>${escapeHtml(dept.name)}</strong></td>
                                     <td>${targets.pctHoanThanh}%</td>
                                     <td>
                                         <div class="progress-cell">
@@ -1767,7 +1785,7 @@ function renderKPICaNhanPage(data = null) {
             <label for="selectStaff">Chọn cán bộ:</label>
             <select id="selectStaff" class="staff-select">
                 <option value="">-- Chọn cán bộ --</option>
-                ${staffList.map(s => `<option value="${s}" ${selectedStaffKPI === s ? 'selected' : ''}>${s}</option>`).join('')}
+                ${staffList.map(s => `<option value="${escapeHtml(s)}" ${selectedStaffKPI === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
             </select>
         </div>
         <div id="kpiCaNhanProfile">
@@ -1796,7 +1814,7 @@ function renderKPICaNhanProfile(staffName) {
     const visibleTasks = getVisibleTasks();
     const staffTasks = visibleTasks.filter(t => t.canBo === staffName);
     if (staffTasks.length === 0) {
-        return `<p class="error-msg">Không tìm thấy nhiệm vụ của cán bộ: ${staffName}</p>`;
+        return `<p class="error-msg">Không tìm thấy nhiệm vụ của cán bộ: ${escapeHtml(staffName)}</p>`;
     }
 
     const department = staffTasks[0].phongBan;
@@ -1807,10 +1825,10 @@ function renderKPICaNhanProfile(staffName) {
     return `
         <div class="kpi-canhan-profile">
             <div class="profile-header">
-                <div class="profile-avatar">${staffName.charAt(0).toUpperCase()}</div>
+                <div class="profile-avatar">${escapeHtml(staffName.charAt(0).toUpperCase())}</div>
                 <div class="profile-info">
-                    <h2>${staffName}</h2>
-                    <p>${department} · Kỳ ${CONFIG.KY_HIEN_TAI}</p>
+                    <h2>${escapeHtml(staffName)}</h2>
+                    <p>${escapeHtml(department)} · Kỳ ${CONFIG.KY_HIEN_TAI}</p>
                 </div>
                 <div class="profile-progress">
                     <div class="progress-circle" style="--progress: ${progress}%">
@@ -1862,8 +1880,8 @@ function renderKPICaNhanProfile(staffName) {
                                 else if (task.trangThai === 'Trễ hạn') rowClass = 'row-overdue';
                                 return `
                                     <tr class="${rowClass}">
-                                        <td><strong>${task.maViec}</strong></td>
-                                        <td>${task.nhiemVu}</td>
+                                        <td><strong>${escapeHtml(task.maViec)}</strong></td>
+                                        <td>${escapeHtml(task.nhiemVu)}</td>
                                         <td>${task.khoiLuong}</td>
                                         <td>
                                             <div class="progress-cell">
@@ -1873,8 +1891,8 @@ function renderKPICaNhanProfile(staffName) {
                                                 <span>${pct}%</span>
                                             </div>
                                         </td>
-                                        <td><span class="status-badge ${statusClass}">${task.trangThai}</span></td>
-                                        <td>${task.hanHoanThanh}</td>
+                                        <td><span class="status-badge ${statusClass}">${escapeHtml(task.trangThai)}</span></td>
+                                        <td>${escapeHtml(task.hanHoanThanh)}</td>
                                     </tr>
                                 `;
                             }).join('')}
@@ -1902,10 +1920,10 @@ function renderPhanCongPage() {
         const staffInDept = [...new Set(deptTasks.map(t => t.canBo).filter(Boolean))];
 
         html += `
-            <div class="phancong-dept" data-dept="${dept}">
-                <div class="dept-header-pc" onclick="this.parentElement.classList.toggle('collapsed')">
+            <div class="phancong-dept" data-dept="${escapeHtml(dept)}">
+                <div class="dept-header-pc">
                     <i class="ti ti-folder"></i>
-                    <strong>${dept}</strong>
+                    <strong>${escapeHtml(dept)}</strong>
                     <span class="dept-meta-pc">${deptTasks.length} việc · KL: ${deptKL}</span>
                     <i class="ti ti-chevron-down toggle-icon"></i>
                 </div>
@@ -1919,7 +1937,7 @@ function renderPhanCongPage() {
             html += `
                 <div class="staff-group-pc">
                     <div class="staff-name-pc">
-                        <i class="ti ti-user"></i> ${staff}
+                        <i class="ti ti-user"></i> ${escapeHtml(staff)}
                         <span class="staff-meta-pc">${staffTasks.length} việc · KL: ${staffKL}</span>
                     </div>
                     <div class="task-list-pc">
@@ -1934,10 +1952,10 @@ function renderPhanCongPage() {
 
                 html += `
                     <div class="task-row-pc ${taskClass}">
-                        <span class="task-code-pc">${task.maViec}</span>
-                        <span class="task-name-pc">${task.nhiemVu}</span>
+                        <span class="task-code-pc">${escapeHtml(task.maViec)}</span>
+                        <span class="task-name-pc">${escapeHtml(task.nhiemVu)}</span>
                         <span class="task-pct-pc">${pct}%</span>
-                        <span class="status-badge ${statusClass}">${task.trangThai}</span>
+                        <span class="status-badge ${statusClass}">${escapeHtml(task.trangThai)}</span>
                     </div>
                 `;
             });
@@ -1974,6 +1992,13 @@ function renderPhanCongPage() {
             ${html}
         </div>
     `;
+
+    // Gập/mở nhóm phòng ban (thay cho onclick inline đã gỡ ở F1)
+    container.querySelectorAll('.dept-header-pc').forEach(header => {
+        header.addEventListener('click', () => {
+            header.parentElement.classList.toggle('collapsed');
+        });
+    });
 }
 
 // ====================================================
@@ -2037,11 +2062,11 @@ function renderNguoiDungPage() {
                         ${users.map((u, i) => `
                             <tr>
                                 <td>${i + 1}</td>
-                                <td><strong>${u.ten}</strong></td>
-                                <td>${u.dept}</td>
-                                <td><span class="role-pill ${u.vai === 'Chủ tịch' ? 'role-admin' : 'role-user'}">${u.vai}</span></td>
-                                <td>${u.soViec}</td>
-                                <td>${u.khoiLuong}</td>
+                                <td><strong>${escapeHtml(u.ten)}</strong></td>
+                                <td>${escapeHtml(u.dept)}</td>
+                                <td><span class="role-pill ${u.vai === 'Chủ tịch' ? 'role-admin' : 'role-user'}">${escapeHtml(u.vai)}</span></td>
+                                <td>${escapeHtml(u.soViec)}</td>
+                                <td>${escapeHtml(u.khoiLuong)}</td>
                                 <td><span class="status-pill active"><i class="ti ti-circle-filled"></i> Hoạt động</span></td>
                             </tr>
                         `).join('')}
@@ -2085,8 +2110,10 @@ function showError(message) {
     container.innerHTML = `
         <div class="error-page">
             <i class="ti ti-alert-triangle"></i>
-            <p>${message}</p>
-            <button onclick="fetchData()" class="btn-primary">Thử lại</button>
+            <p>${escapeHtml(message)}</p>
+            <button id="retryBtn" class="btn-primary">Thử lại</button>
         </div>
     `;
+    // addEventListener thay cho onclick inline (F1) — onclick sẽ hỏng khi tách module
+    document.getElementById('retryBtn')?.addEventListener('click', () => fetchData());
 }
