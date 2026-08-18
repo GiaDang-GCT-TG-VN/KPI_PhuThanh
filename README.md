@@ -39,16 +39,16 @@ Dashboard theo dõi tiến độ nhiệm vụ, đọc dữ liệu trực tiếp 
 
 ### Bước 2: Upload code
 
-**Cách 1: Kéo thả (đơn giản nhất)**
+**Cách 1: Kéo thả**
 1. Mở repo vừa tạo trên GitHub
 2. Click **uploading an existing file**
-3. Kéo thả 5 file sau vào:
-   - `index.html`
-   - `style.css`
-   - `leaders.js`
-   - `app.js`
-   - `.nojekyll`
+3. Kéo thả **cả 9 file + thư mục `render/`**:
+   - `index.html` · `style.css` · `.nojekyll`
+   - `config.js` · `leaders.js` · `utils.js` · `api.js` · `app.js`
+   - thư mục `render/` (gồm `dashboard.js`, `tasks.js`, `staff.js`, `admin.js`)
 4. Click **Commit changes**
+
+> ⚠️ Thiếu một file JS là dashboard trắng trang. Kéo thả cả thư mục `render/` chứ không chỉ 4 file bên trong. Nếu ngại sót, dùng **Cách 2 (git)**.
 
 **Cách 2: Git command**
 ```bash
@@ -93,13 +93,27 @@ Dashboard tự động fetch dữ liệu mới từ Google Sheets mỗi khi refr
 
 ```
 05_Dashboard/
-├── index.html      # Trang chính
-├── style.css       # Giao diện (tông xanh #15803d)
-├── leaders.js      # Danh sách lãnh đạo (sửa ở đây khi thay đổi nhân sự)
-├── app.js          # Logic fetch CSV + render
-├── .nojekyll       # Bỏ qua Jekyll của GitHub
-└── README.md       # File này
+├── index.html          # Trang chính — quy định THỨ TỰ nạp các file .js
+├── style.css           # Giao diện (tông xanh #15803d)
+├── config.js           # Nguồn dữ liệu, hằng số, quyền menu
+├── leaders.js          # Danh sách lãnh đạo ← sửa ở đây khi thay đổi nhân sự
+├── utils.js            # escapeHtml (bảo mật), tính KPI, helper hiển thị
+├── api.js              # Tải CSV + parse ← Bước 3 chỉ cần sửa file này
+├── render/
+│   ├── dashboard.js    # Dashboard · KPI phòng ban · Bộ KPI
+│   ├── tasks.js        # Theo dõi · Cần cập nhật · Phân công
+│   ├── staff.js        # Nhân sự · Hồ sơ cán bộ · KPI cá nhân
+│   └── admin.js        # Người dùng · Cập nhật số liệu
+├── app.js              # Trạng thái, khởi tạo, điều hướng, phân quyền
+├── .nojekyll           # Bỏ qua Jekyll của GitHub
+└── README.md           # File này
 ```
+
+**Thứ tự nạp** (đã cài trong `index.html`, đừng đổi):
+`config.js` → `leaders.js` → `utils.js` → `api.js` → `render/*.js` → `app.js`
+
+Các file dùng chung phạm vi toàn cục (classic script, không phải ES module),
+nên `app.js` phải nạp **sau cùng**.
 
 ## Cập nhật danh sách lãnh đạo
 
