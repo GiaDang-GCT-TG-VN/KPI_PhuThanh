@@ -21,21 +21,8 @@ let currentFilters = { department: '', status: '' };
 let currentStaffProfile = null;
 
 // === ROLE-BASED VIEW (Mô phỏng) ===
-// Danh sách lãnh đạo - scope phải khớp CHÍNH XÁC với cột "Phòng ban" trong Google Sheets
-const LEADERS = [
-    // Lãnh đạo xã (toàn xã)
-    { id: 'ct',     name: 'Nguyễn Nam',           title: 'Chủ tịch UBND xã',              role: 'chutich',     scope: null },
-    { id: 'pct1',   name: 'Dương Hoàng Lai',      title: 'Phó Chủ tịch',                  role: 'phochutich',  scope: null },
-    { id: 'pct2',   name: 'Phạm Thị Thanh Hoa',   title: 'Phó Chủ tịch',                  role: 'phochutich',  scope: null },
-    // Trưởng đơn vị (chỉ đơn vị mình)
-    { id: 'cvp',    name: 'Trần Văn Bình',        title: 'Chánh Văn phòng HĐND-UBND',     role: 'truongdonvi', scope: 'Văn phòng HĐND&UBND' },
-    { id: 'tpkt',   name: 'Nguyễn Hữu Thắng',     title: 'Trưởng phòng Kinh tế',          role: 'truongdonvi', scope: 'Phòng Kinh tế' },
-    { id: 'tpvhxh', name: 'Lê Thị Hoa',           title: 'Trưởng phòng Văn hóa - Xã hội', role: 'truongdonvi', scope: 'Phòng Văn hoá - Xã hội' },
-    { id: 'gdhcc',  name: 'Mai Thị Minh Ánh',     title: 'Giám đốc Trung tâm HCC',        role: 'truongdonvi', scope: 'Trung tâm phục vụ hành chính công' },
-    { id: 'gdtt',   name: 'Phạm Văn Tú',          title: 'Trưởng ấp Thọ Khương',          role: 'truongdonvi', scope: 'Ấp Thọ Khương' },
-    { id: 'tram',   name: 'Vũ Đình Long',         title: 'Trưởng Trạm y tế',              role: 'truongdonvi', scope: 'Trạm y tế' },
-];
-
+// Danh sách LEADERS nằm ở file riêng leaders.js (load trước app.js trong index.html)
+// -> Thay đổi nhân sự chỉ cần sửa leaders.js, không đụng vào file này.
 let currentLeader = LEADERS[0]; // Mặc định Chủ tịch
 
 // Menu access by role (chỉ 3 role, bỏ canbo)
@@ -370,6 +357,9 @@ async function fetchData() {
             showError('Không có dữ liệu nhiệm vụ. Kiểm tra Google Sheet hoặc cấu trúc file CSV.');
             return;
         }
+
+        // Cảnh báo nếu scope trong leaders.js không khớp đơn vị nào trong Sheet
+        validateLeaders();
 
         // Populate leader dropdown
         populateLeaderDropdown();
