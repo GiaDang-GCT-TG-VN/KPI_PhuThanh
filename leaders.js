@@ -31,13 +31,32 @@ const LEADERS = [
     { id: 'ap-binhninh',   name: '[Chưa cập nhật — Trưởng ấp Bình Ninh]',                        title: 'Trưởng ấp Bình Ninh',                        role: 'truongdonvi', scope: 'Ấp Bình Ninh' },
 ];
 
-// Kiểm tra scope của Trưởng đơn vị có khớp cột "Phòng ban" trong Sheet không.
+// Đối chiếu danh sách LEADERS với dữ liệu thật trong Sheet, theo CẢ HAI chiều.
 // Gọi sau khi parse CSV xong (trong fetchData của app.js).
+// Cảnh báo hiện ở Console trình duyệt (F12), không hiện cho người dùng cuối.
 function validateLeaders() {
-    const depts = new Set(allTasks.map(t => t.phongBan).filter(Boolean));
-    LEADERS.filter(l => l.role === 'truongdonvi').forEach(l => {
-        if (l.scope && !depts.has(l.scope)) {
+    // Đếm số nhiệm vụ theo từng đơn vị
+    const taskCount = {};
+    allTasks.forEach(t => {
+        if (t.phongBan) taskCount[t.phongBan] = (taskCount[t.phongBan] || 0) + 1;
+    });
+
+    const truongDonVi = LEADERS.filter(l => l.role === 'truongdonvi');
+    const scopes = new Set(truongDonVi.map(l => l.scope).filter(Boolean));
+
+    // Chiều 1 — scope trong leaders.js không khớp đơn vị nào trong Sheet.
+    // Thường do gõ sai tên đơn vị hoặc xã đổi tên đơn vị.
+    truongDonVi.forEach(l => {
+        if (l.scope && taskCount[l.scope] === undefined) {
             console.warn(`[LEADERS] scope "${l.scope}" của ${l.name} không khớp đơn vị nào trong Sheet. Người này sẽ thấy 0 nhiệm vụ.`);
+        }
+    });
+
+    // Chiều 2 — đơn vị có nhiệm vụ trong Sheet nhưng chưa có Trưởng đơn vị.
+    // Thường do xã điền thêm dòng nhiệm vụ cho một ấp/đơn vị mới.
+    Object.keys(taskCount).sort().forEach(d => {
+        if (!scopes.has(d)) {
+            console.warn(`[LEADERS] Đơn vị "${d}" có ${taskCount[d]} nhiệm vụ nhưng chưa có Trưởng đơn vị trong leaders.js — không ai xem được ở vai Trưởng đơn vị.`);
         }
     });
 }
