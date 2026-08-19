@@ -121,7 +121,11 @@ function parseCSV(csv) {
         console.warn('[CSV] Sheet thiếu cột:', missing.join(', '), '— các cột này sẽ để trống.');
     }
 
-    // Parse ALL data rows (bao gồm cả dòng không có Mã việc)
+    // CHỈ đọc những dòng LÀ NHIỆM VỤ THẬT.
+    // Sheet còn chứa dòng khai báo lãnh đạo (đầu bảng), dòng chỗ trống chờ điền
+    // (có mã việc nhưng chưa có tên nhiệm vụ) và dòng hướng dẫn (cuối bảng).
+    // Trước đây allStaff/allDepartments gom từ MỌI dòng nên 2 Phó Chủ tịch lọt vào
+    // danh sách cán bộ và "PCT UBND xã" lọt vào danh sách phòng ban.
     for (let i = headerIndex + 1; i < rows.length; i++) {
         const row = rows[i];
 
@@ -130,16 +134,11 @@ function parseCSV(csv) {
         const canBo = getColumnValue(row, columnIndex, 'canBo', '').trim();
         const phongBan = getColumnValue(row, columnIndex, 'phongBan', '').trim();
 
-        // Thu thập TẤT CẢ cán bộ và phòng ban (kể cả dòng không có Mã việc)
-        if (canBo && !canBo.startsWith('HƯỚNG DẪN')) {
-            staffSet.add(canBo);
-        }
-        if (phongBan && !phongBan.startsWith('HƯỚNG DẪN')) {
-            deptSet.add(phongBan);
-        }
+        if (!isValidTaskRow(row, columnIndex)) continue;
 
-        // Chỉ tạo task nếu có Mã việc bắt đầu bằng CV
-        if (!maViec || !maViec.startsWith('CV')) continue;
+        // Chỉ dòng nhiệm vụ thật mới đóng góp vào danh mục cán bộ / phòng ban
+        if (canBo) staffSet.add(canBo);
+        if (phongBan) deptSet.add(phongBan);
 
         // Tạo task object từ dynamic mapping
         const task = {
@@ -159,16 +158,24 @@ function parseCSV(csv) {
             ngayChinhSua: getColumnValue(row, columnIndex, 'ngayChinhSua', '')
         };
 
-        if (task.maViec && task.nhiemVu) {
-            tasks.push(task);
-        }
+        tasks.push(task);
     }
 
-    // Cập nhật global state với TẤT CẢ cán bộ và phòng ban
+    // Danh mục cán bộ / phòng ban — chỉ từ nhiệm vụ thật
     allStaff = [...staffSet].sort();
     allDepartments = [...deptSet].sort();
 
     return tasks;
+}
+
+
+// Một dòng là NHIỆM VỤ THẬT khi có mã việc đúng dạng CV + số VÀ có tên nhiệm vụ.
+// Loại được: dòng khai báo lãnh đạo (không có mã việc), dòng chỗ trống chờ điền
+// (có mã nhưng chưa có tên nhiệm vụ), dòng hướng dẫn cuối Sheet.
+function isValidTaskRow(row, columnIndex) {
+    const maViec = getColumnValue(row, columnIndex, 'maViec', '').trim();
+    const tenNhiemVu = getColumnValue(row, columnIndex, 'nhiemVu', '').trim();
+    return /^CV\d+$/i.test(maViec) && tenNhiemVu.length > 0;
 }
 
 
